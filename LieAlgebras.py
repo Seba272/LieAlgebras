@@ -77,6 +77,101 @@ brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j]
         except:
             None
         return res
+    def a_vector(self,v):
+        return Array(symbols(v+'[:%d]'%self._dimension))
+    def _multbra_u(self,r,v,s,w,u):
+        """\
+Compute
+\[
+[v,[v,...,[v,[w,[w,...,[w,u]]]]]]]
+\]
+con r volte v e s volte w
+        """
+        uu = u
+        for i in range(s):
+            uu = self.brackets(w,uu)
+        for j in range(r):
+            uu = self.brackets(v,uu)
+        return uu
+    def _multbra(self,r,v,s,w):
+        """\
+Compute
+\[
+[v,[v,...,[v,[w,...[w,[v,...[v,w...
+\]
+r[1] volte v, s[1] volte w, r[2] volte v, s[2] volte w, .... , r[n] volte v, s[n] volte w.
+Attenzioen che gli ultimi sono delicati, perché [w,w]=0, etc...
+        """
+        n=len(r)
+        if n == 0:
+            return 0*w
+        if s[-1]>1:
+            return 0*w
+        if s[-1] == 0 and r[-1]>1:
+            return 0*v
+        if s[-1] == 0 and r[-1] == 0:
+            return self._multbra(r[:-1],v,s[:-1],w) # drop the last element and start again
+        if s[-1]==1:
+            u = w
+            u = self._multbra_u(r[-1],v,0,w,u)
+        if s[-1]==0:
+            u = v
+        for i in range(n-1):
+            u = self._multbra_u(r[i],v,s[i],w,u)
+        return u
+    def _list_rs(self,n,N):
+        """\
+Output: list of 
+[r1,s1,r2,s2,....,rn,sn]
+with rj+sj>0 and r1+s1+...+rn+sn <= N
+        """
+        pairs = []
+        for r in range(N+1):
+            for s in range(N+1-r):
+                pairs.append([r,s])
+        pairs.pop(0) # the first element is [0,0]
+        if n == 0 or n>N:
+            return []
+        RS = pairs
+        for j in range(1,n):
+            RS_prec = RS
+            RS = []
+            for rs in RS_prec:
+                for pair in pairs:
+                    if sum(rs + pair) <= N :
+                        RS.append(rs+pair)
+        return RS
+    def _prod_list(self,ll):
+        p = 1
+        for x in ll:
+            p=p*x
+        return p
+    def bch_trnc(self,v,w,N):
+        """\
+Baker–Campbell–Hausdorff formula
+https://en.wikipedia.org/wiki/Baker–Campbell–Hausdorff_formula
+with sum up to N
+        """
+        res = 0*v
+        for n in range(1,N+1):
+            coef = (-1)**(n-1)/n
+            RS = self._list_rs(n,N)
+            RS_sum = 0*v
+            for rs in RS:
+                somma = sum(rs)
+                rs_fact = [factorial(x) for x in rs]
+                prodotto = self._prod_list(rs_fact)
+                r = [rs[2*x] for x in range(n)]
+                s = [rs[2*x+1] for x in range(n)]
+                RS_sum = RS_sum + (somma*prodotto)**(-1) * self._multbra(r,v,s,w)
+            res = res + coef * RS_sum
+        return res
+    def bch(self,v,w):
+        if self.is_nilpotent == True and self.step!=None :
+            return bch_trnc(v,w,self.step)
+        else:
+            print('Error: This algebra is not nilpotent. Use bch_trnc(v,w,N) with level of precision N.')
+            return None
     
 class RiemLieAlgebra(LieAlgebra):
     """\
