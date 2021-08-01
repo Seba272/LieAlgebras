@@ -2,19 +2,15 @@ from sympy import *
 import time as time
 
 class LieAlgebra:
-    
-    def __init__(self,dim,struct_const='Gamma',scalar_prod='g'):
+    def __init__(self,dim,struct_const='Gamma'):
         self._dimension = dim
         self.structure_constants_build(struct_const)
-        self.scalar_product_build(scalar_prod)
-            
     def structure_constants(self):
         try:
             self._structure_constants
         except AttributeError:
             self.structure_constants_build(self)
         return self._structure_constants
-                    
     def structure_constants_build(self,rules=None):
         """\
 A.define_brackets(rules)
@@ -32,7 +28,6 @@ A_{4,3} (dim = 4) : a43 = { (1,3) : [(-1,1)] , (2,3):[(-1,0)] }
             self._structure_constants_build_abstract(rules)
         else:
             self._structure_constants_build_from_rules(rules)
-    
     def _structure_constants_build_abstract(self,struct_const):
         """\
 Output: tensor of type (2,1) : G[_a,_b,^c]
@@ -48,7 +43,6 @@ brackets(B_a,B_b) = G[_a,_b,^c] B_c
                         self._structure_constants[a,b,c] = 0
                     if a<b:
                         self._structure_constants[a,b,c] = -self._structure_constants[b,a,c]
-    
     def _structure_constants_build_from_rules(self,rules):
         dim = self._dimension
         # put constants to zero:
@@ -59,13 +53,39 @@ brackets(B_a,B_b) = G[_a,_b,^c] B_c
             for a in res:
                 self._structure_constants[r[0],r[1],a[1]] = a[0]
                 self._structure_constants[r[1],r[0],a[1]] = -a[0]
-
     def brackets(self,v,w):
         """\
 brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j]
         """
         return tensorcontraction(tensorproduct(self._structure_constants,v,w),(0,3),(1,4))
-
+    def check_jacobi(self):
+        """\
+ G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
+ but it is easier to check it on symbolic vectors.
+        """
+#        G = self.structure_constants()
+        dim = self._dimension
+        xx = IndexedBase('x', real=True)
+        yy = IndexedBase('y', real=True)
+        zz = IndexedBase('z', real=True)
+        x = MutableDenseNDimArray([xx[j] for j in range(dim)],(dim))
+        y = MutableDenseNDimArray([yy[j] for j in range(dim)],(dim))
+        z = MutableDenseNDimArray([zz[j] for j in range(dim)],(dim))
+        res = simplify(self.brackets(self.brackets(x,y),z) + self.brackets(self.brackets(y,z),x) + self.brackets(self.brackets(z,x),y))
+        try:
+            res = res.applyfunc(simplify)
+        except:
+            None
+        return res
+    
+class RiemLieAlgebra(LieAlgebra):
+    """\
+Subclass of LieAlgebra: in addition to Lie algebra's methods and things, there is a also a scalar product and the corresponding left-invariant Riemannian structure.
+    """
+    def __init__(self,dim,struct_const='Gamma',scalar_prod='g'):
+        self._dimension = dim
+        self.structure_constants_build(struct_const)
+        self.scalar_product_build(scalar_prod)
     def scalar_product_build(self,m=None):
         """\
 ma is a dim x dim square matrix that is used to define the scalar product in A.
@@ -74,7 +94,6 @@ ma is a dim x dim square matrix that is used to define the scalar product in A.
             self._scalar_product_build_abstract(m)
         else:
             self._scalar_product_build_from_matrix(m)
-    
     def _scalar_product_build_abstract(self,scalar_prod):
         dim = self._dimension
         G = self._scalar_product_symbol = IndexedBase(scalar_prod, real=True)
@@ -83,14 +102,12 @@ ma is a dim x dim square matrix that is used to define the scalar product in A.
             for b in range(dim):
                 if b<a:
                     self._scalar_product_tensor[a,b] = self._scalar_product_tensor[b,a]
-    
     def _scalar_product_build_from_matrix(self,m):
         dim = self._dimension
         if not m.is_Matrix or not m.shape == (dim,dim):
             print("Error: must be a square matrix of rank", dim)
             return None
         self._scalar_product_tensor = MutableDenseNDimArray(m)
-    
     def scalar_product_tensor(self):
         """\
 Output: tensor of type (2,0): M[_a,_b] = <B_a,B_b>
@@ -100,7 +117,6 @@ Output: tensor of type (2,0): M[_a,_b] = <B_a,B_b>
         except AttributeError:
             self.scalar_product_build()
         return self._scalar_product_tensor
-
     def scalar_product(self,v,w):
         """\
 v and w of class Array
@@ -109,11 +125,9 @@ Compute scalar product of v and w in Lie algebra A.
         """
         M = self.scalar_product_tensor()
         return tensorcontraction(tensorproduct(v,M,w),(0,1),(2,3))
-    
     def scalar_product_inverse_build(self):
         sc_pr_inv = self.scalar_product_tensor().tomatrix().inv()
         self._scalar_product_inverse_tensor = MutableDenseNDimArray(sc_pr_inv)
-    
     def scalar_product_inverse_tensor(self):
         """\
 Output: tensor of type (0,2) : M[^a,^b] = (M.inv)[a,b]
@@ -123,7 +137,6 @@ Output: tensor of type (0,2) : M[^a,^b] = (M.inv)[a,b]
         except AttributeError:
             self.scalar_product_inverse_build()
         return self._scalar_product_inverse_tensor
-    
     def connection_tensor(self):
         """\
 Output: tensor of type (3,0) : D[_a,_b,_c] = < D_{B_a} B_b, B_c >
@@ -133,7 +146,6 @@ Output: tensor of type (3,0) : D[_a,_b,_c] = < D_{B_a} B_b, B_c >
         except AttributeError:
             self.connection_tensor_build()
         return self._connection_tensor
-
     def connection_tensor_build(self):
         """\
 < D_x y,z > =
@@ -147,7 +159,6 @@ Output: tensor of type (3,0) : D[_a,_b,_c] = < D_{B_a} B_b, B_c >
         u -= tensorcontraction(tensorproduct(M,G),(1,4))
         u += tensorcontraction(tensorproduct(G,M,delta),(2,3),(0,5))
         self._connection_tensor = u/2
-    
     def connection_scalar(self,x,y,z):
         """\
 Returns a scalar that is (The Koszul formula):
@@ -164,7 +175,6 @@ Returns a scalar that is (The Koszul formula):
         """
         D = self.connection_tensor()
         return tensorcontraction(tensorproduct(D,x,y,z),(0,3),(1,4),(2,5))
-    
     def connection_map_tensor(self):
         """\
 Output: tensor of type (2,1) : D[_a,_b,^c] = D[_a,_b,_k] M[^k,^c]
@@ -175,7 +185,6 @@ Output: tensor of type (2,1) : D[_a,_b,^c] = D[_a,_b,_k] M[^k,^c]
         except AttributeError:
             self.connection_map_tensor_build()
         return self._connection_map_tensor
-    
     def connection_map_tensor_build(self):
         """
 D[_a,_b,^c] = D[_a,_b,_k] M[^k,^c] =  D[a,b,k] Minv(k,c)      
@@ -183,14 +192,12 @@ D[_a,_b,^c] = D[_a,_b,_k] M[^k,^c] =  D[a,b,k] Minv(k,c)
         D = self.connection_tensor()
         Minv = self.scalar_product_inverse_tensor()
         self._connection_map_tensor = tensorcontraction(tensorproduct(D,Minv),(2,3))
-
     def connection_map(self,x,y):
         """\
 (D_xy)[^k] = D[_a,_b,^k] x[a]y[b]
         """
         D = self.connection_map_tensor()
         return tensorcontraction(tensorproduct(D,x,y),(0,3),(1,4))
-
     def curvature_map(self,x,y,z):
         """\
 Returns a vector.
@@ -206,7 +213,6 @@ but opposit of Le Donne.
         vect2 = self.connection_map(x,self.connection_map(y,z))
         vect3 = self.connection_map(y,self.connection_map(x,z))
         return vect1 - vect2 + vect3
-    
     def curvature_tensor_evaluated(self,x,y,z,u):
         """\
 Returns a scalar.
@@ -215,7 +221,6 @@ R(x,y,z,u) = \\langle R_{x,y}z , u \\rangle .
 \\]
         """
         return self.scalar_product( self.curvature_map(x,y,z) , u )
-
     def curvature_tensor(self):
         """\
 Returns the Riemannian curvature tensor (4,0):
@@ -232,7 +237,6 @@ R[_a,_b,_c,_d]
         except AttributeError:
             self.curvature_tensor_build()
         return self._curvature_tensor
-    
     def curvature_tensor_build(self):
         """\
 <R(x,y,z),t>
@@ -258,7 +262,6 @@ R[_a,_b,_c,_d]
 #        u -= tensorcontraction(tensorproduct(D,D,M),(1,5),(2,6))
 #        u += tensorcontraction(tensorproduct(delta,D,D,M),(1,5),(3,7),(4,8))
         self._curvature_tensor = u
-    
     def curvature(self,x,y,z,t):
         """\
 <R(x,y,z),t>
@@ -267,27 +270,6 @@ R[_a,_b,_c,_d]
         """
         R = self.curvature_tensor()
         return tensorcontraction(tensorproduct(R,x,y,z,t),(0,4),(1,5),(2,6),(3,7))
-    
-    def check_jacobi(self):
-        """\
- G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
- but it is easier to check it on symbolic vectors.
-        """
-#        G = self.structure_constants()
-        dim = self._dimension
-        xx = IndexedBase('x', real=True)
-        yy = IndexedBase('y', real=True)
-        zz = IndexedBase('z', real=True)
-        x = MutableDenseNDimArray([xx[j] for j in range(dim)],(dim))
-        y = MutableDenseNDimArray([yy[j] for j in range(dim)],(dim))
-        z = MutableDenseNDimArray([zz[j] for j in range(dim)],(dim))
-        res = simplify(self.brackets(self.brackets(x,y),z) + self.brackets(self.brackets(y,z),x) + self.brackets(self.brackets(z,x),y))
-        try:
-            res = res.applyfunc(simplify)
-        except:
-            None
-        return res
-    
     def check_bianchi_identity(self):
         T = self.curvature_tensor()
         dim = self._dimension
@@ -300,7 +282,6 @@ R[_a,_b,_c,_d]
                         if test != 0 :
                             err.append([[a,b,c,d],test])
         return err
-
     def check_symmetries_curvature(self):
         T = self.curvature_tensor()
         dim = self._dimension
@@ -319,7 +300,6 @@ R[_a,_b,_c,_d]
                         if test3 != 0:
                             err.append([[a,b,c,d],3,test3])
         return err    
-
     def cook(self):
         print(time.asctime(),"  This can be a long process: take a book to read.")
         print(time.asctime(),"  Building or simplifying the tensor of the scalar product.")
@@ -334,6 +314,9 @@ R[_a,_b,_c,_d]
         self._curvature_tensor = self.curvature_tensor().applyfunc(simplify)
         print(time.asctime(),"  Finished! I hope you had a good time. Bye!")
         print(":)")
+
+
+
 
 def idee():
     testo="""
@@ -392,3 +375,4 @@ xxx = ricdiff([0,1,0,0],[0,0,0,1])
 len(str(xxx))
     """
     print(testo)
+
