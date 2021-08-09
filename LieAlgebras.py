@@ -1,23 +1,29 @@
 from sympy import *
 import time as time
 
-def ism(expr,rules,MAX=100): 
-    """Iterated Symbolic Manipulation.
+# SOME MATERIAL FOR NON-COMMUTATIVE ALGEBRAS :
+# This will be used for tensors and vector fields.
+def isubs(expr,rules,MAX=100): 
+    """Iterated Symbolic Substitions.
 
     Applies _rules_ to _expr_ iteratively until _expr_ does not change anymore,
     or _MAX_ iterations are done.
+
+    NB! .subs(rules) applies rules only once. This is why we need an iterated version.
+
+    NB! Every time rules are applied, the expression is also expanded.
     
     Example:
     ========
     > x,y,z = symbols('x y z',commutative=False)
     > rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
-    > ism(y*x,rules)
+    > isubs(y*x,rules)
     x*y - z
-    > ism(y*x*x*x*x*x*x**x*x*x*x*x*x*x,rules,100)
-    -5*x**4*z*x**x*x**6 + x**5*y*x**x*x**6
-    > ism(y*x*x*x*x*x*x**x*x*x*x*x*x*x,rules,5)
+    > isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,100)
+    -13*x**12*z + x**13*y
+    > isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,5)
     max iter reached!
-    -5*x**4*z*x**x*x**6 + x**5*y*x**x*x**6
+    -5*x**4*z*x**8 + x**5*y*x**8
     """
     expr_simplified = expand(expr)
     iterazione = 0
