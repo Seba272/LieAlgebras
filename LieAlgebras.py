@@ -1,6 +1,36 @@
 from sympy import *
 import time as time
 
+def ism(expr,rules,MAX=100): 
+    """Iterated Symbolic Manipulation.
+
+    Applies _rules_ to _expr_ iteratively until _expr_ does not change anymore,
+    or _MAX_ iterations are done.
+    
+    Example:
+    ========
+    > x,y,z = symbols('x y z',commutative=False)
+    > rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
+    > ism(y*x,rules)
+    x*y - z
+    > ism(y*x*x*x*x*x*x**x*x*x*x*x*x*x,rules,100)
+    -5*x**4*z*x**x*x**6 + x**5*y*x**x*x**6
+    > ism(y*x*x*x*x*x*x**x*x*x*x*x*x*x,rules,5)
+    max iter reached!
+    -5*x**4*z*x**x*x**6 + x**5*y*x**x*x**6
+    """
+    expr_simplified = expand(expr)
+    iterazione = 0
+    while iterazione < MAX:
+        iterazione+=1
+        new_expr_simplified = expand(expr_simplified.subs(rules))
+        if new_expr_simplified == expr_simplified :
+            return new_expr_simplified
+        else:
+            expr_simplified = new_expr_simplified
+    print('Max iterations reached!')
+    return expr_simplified
+
 class LieAlgebra:
     dimension = None
     basis_symbols = None
