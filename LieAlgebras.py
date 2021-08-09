@@ -242,6 +242,10 @@ self.dual_basis_symbols = [xd,yd,zd]
                 for b_vect in self.basis_symbols ]
     def build_basis_LI_diff_operators(self,order):
         """
+ERRORE : in realtà qui si fa la base di tensori. 
+I campi hanno regole di commutazione 
+per cui questi non sono linearmente indipendenti!
+
 Build the list basi = self.basis_LI_diff_operators, where
 basi[0] = [1]
 basi[1] = self.basis_symbols
