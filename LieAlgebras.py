@@ -2,6 +2,14 @@ from sympy import *
 import time as time
 
 class LieAlgebra:
+    dimension = None
+    basis_symbols = None
+    is_nilpotent = None
+    step = None
+    is_graded = None
+    is_stratified = None
+    growth_vector = None
+    graded_basis_symbols = None
     def __init__(self,dim,struct_const='Gamma'):
         self._dimension = dim
         self.structure_constants_build(struct_const)
@@ -167,12 +175,56 @@ with sum up to N
             res = res + coef * RS_sum
         return res
     def bch(self,v,w):
+        """\
+Baker–Campbell–Hausdorff formula
+https://en.wikipedia.org/wiki/Baker–Campbell–Hausdorff_formula
+with sum up to the step of self,
+which needs to be nilpotent.
+Otherwise, use bch_trnc(v,w,N) with level of precision N.
+        """
         if self.is_nilpotent == True and self.step!=None :
-            return bch_trnc(v,w,self.step)
+            return self.bch_trnc(v,w,self.step)
         else:
             print('Error: This algebra is not nilpotent. Use bch_trnc(v,w,N) with level of precision N.')
             return None
-    
+    def declare_nilpotent(self,isit=True,step=None):
+        self.is_nilpotent = isit
+        self.step = step
+    def check_nilpotent(self):
+        print('Is nilpotent? ',self.is_nilpotent,' step: ',self.step)
+        return None
+    def declare_graded(self,isit=True,step=None,growth_vector=None):
+        self.is_nilpotent = isit
+        self.is_graded = isit
+        self.step = step
+        self.growth_vector = growth_vector
+    def declare_stratified(self,isit=True,step=None,growth_vector=None):
+        self.is_nilpotent = isit
+        self.is_graded = isit
+        self.is_stratified = isit
+        self.step = step
+        self.growth_vector = growth_vector
+    def set_step(self,step=None):
+        if self.step != None:
+            print("At the moment, the step is ",self.step)
+        if step==None:
+            self.step = int(input("What is the step?"))
+        else:
+            self.step = step
+        print("step set to ",self.step," (You should check that the Lie algebra is nilpotent!)")
+    def build_graded_basis_symbols(self):
+        if self.is_graded == None or self.is_graded:
+            print('The algebra must be graded')
+            return None
+        graded_basis = []
+        for j in range(len(self.growth_vector)):
+            base_j_layer = []
+            for k in range(growth_vector[j]):
+                base_j_layer.append(symbols('b^'+str(j)+'_'+str(k),commutative=False))
+            graded_basis.append(base_j_layer)
+        self.graded_basis_symbols = graded_basis
+        self.basis_symbols = flatten(graded_basis)
+
 class RiemLieAlgebra(LieAlgebra):
     """\
 Subclass of LieAlgebra: in addition to Lie algebra's methods and things, there is a also a scalar product and the corresponding left-invariant Riemannian structure.
