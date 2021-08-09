@@ -12,6 +12,7 @@ class LieAlgebra:
     graded_basis_symbols = None
     basis_LI_diff_operators = None
     rules_vector_fields = None
+    basis_tensors_symbols = None
     def __init__(self,dim,struct_const='Gamma'):
         self._dimension = dim
         self.structure_constants_build(struct_const)
@@ -269,7 +270,7 @@ i.e.,
 rules = { y*x : x*y - z }
         """
         if self.basis_symbols == None:
-            print('Error: first you need to basis_symbols')
+            print('Error: first you need to build basis_symbols')
             return None
         basis = self.basis_symbols
         dim = self.dimension
