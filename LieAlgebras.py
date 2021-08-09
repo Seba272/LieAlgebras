@@ -240,13 +240,11 @@ self.dual_basis_symbols = [xd,yd,zd]
         self.dual_basis_symbols = [ \
                 symbols(b_vect.name+symbol_for_dual,commutative=False) \
                 for b_vect in self.basis_symbols ]
-    def build_basis_LI_diff_operators(self,order):
+    def build_basis_tensors(self,order):
         """
-ERRORE : in realtà qui si fa la base di tensori. 
-I campi hanno regole di commutazione 
-per cui questi non sono linearmente indipendenti!
-
-Build the list basi = self.basis_LI_diff_operators, where
+Build the list basi = self.basis_tensors_symbols, 
+where basi[k] is the basis of tensors of order k,
+for k from 0 to 'order':
 basi[0] = [1]
 basi[1] = self.basis_symbols
 basi[2] = [a*b for a in basi[1] for b in basi[1]]
@@ -255,19 +253,14 @@ basi[order] = ...
 Notice that len(basi) = order + 1 
         """
         if order >= 0:
-            self.basis_LI_diff_operators = [[1]]
+            self.basis_tensors_symbols = [[1]]
         if order >= 1:
-            self.basis_LI_diff_operators += [self.basis_symbols]
+            self.basis_tensors_symbols += [self.basis_symbols]
         if order > 1:
             for j in range(order-1):
-                first_bas = self.basis_symbols
-                prev_bas = self.basis_LI_diff_operators[-1]
-                new_bas = []
-                for aa in old_bas:
-                    for bb in first_bas:
-                        new_bas.append(aa*bb)
-                self.basis_LI_diff_operators += new_bas
-                    for bb in 
+                self.basis_tensors_symbols = [ \
+                        a*b for a in self.basis_tensors_symbols[-1] for b in self.basis_symbols \
+                        ]
     def build_rules_vector_fields(self):
         """
 Example in the Heisenberg group:
