@@ -11,6 +11,7 @@ class LieAlgebra:
     growth_vector = None
     graded_basis_symbols = None
     basis_LI_diff_operators = None
+    rules_vector_fields = None
     def __init__(self,dim,struct_const='Gamma'):
         self._dimension = dim
         self.structure_constants_build(struct_const)
@@ -263,6 +264,38 @@ Notice that len(basi) = order + 1
                         new_bas.append(aa*bb)
                 self.basis_LI_diff_operators += new_bas
                     for bb in 
+    def build_rules_vector_fields(self):
+        """
+Example in the Heisenberg group:
+rules[y*x] = x*y - z
+i.e.,
+rules = { y*x : x*y - z }
+        """
+        if self.basis_symbols == None:
+            print('Error: first you need to basis_symbols')
+            return None
+        basis = self.basis_symbols
+        dim = self.dimension
+        self.rules_vector_fields = {}
+        for i in range(self.dimension):
+            for j in range(i):
+                bi = Array(flatten(eye(dim)[i,:]))
+                bj = Array(flatten(eye(dim)[j,:]))
+                bk = list(self.brackets(bi,bj))
+                res = basis[j]*basis[i]
+                for k in range(dim):
+                    res += bk[k]*basis[k]
+                self.rules_vector_fields[basis[i]*basis[j]] = res
+
+
+
+
+
+
+
+
+
+
 
 
 class RiemLieAlgebra(LieAlgebra):
