@@ -10,6 +10,7 @@ class LieAlgebra:
     is_stratified = None
     growth_vector = None
     graded_basis_symbols = None
+    basis_LI_diff_operators = None
     def __init__(self,dim,struct_const='Gamma'):
         self._dimension = dim
         self.structure_constants_build(struct_const)
@@ -213,17 +214,56 @@ Otherwise, use bch_trnc(v,w,N) with level of precision N.
             self.step = step
         print("step set to ",self.step," (You should check that the Lie algebra is nilpotent!)")
     def build_graded_basis_symbols(self):
+        """
+Per Heisenberg:
+x,y,z = symbols('x y z',commutative=False)
+self.graded_basis_symbols = [[x,y],[z]]
+self.basis_symbols = flatten(self.graded_basis_symbols)
+xd,yd,zd = symbols('x^+ y^+ z^+',commutative=False) # dual elements
+self.dual_basis_symbols = [xd,yd,zd]
+        """
         if self.is_graded == None or self.is_graded:
             print('The algebra must be graded')
             return None
-        graded_basis = []
+        self.graded_basis_symbols = []
         for j in range(len(self.growth_vector)):
             base_j_layer = []
             for k in range(growth_vector[j]):
                 base_j_layer.append(symbols('b^'+str(j)+'_'+str(k),commutative=False))
-            graded_basis.append(base_j_layer)
-        self.graded_basis_symbols = graded_basis
-        self.basis_symbols = flatten(graded_basis)
+            self.graded_basis_symbols.append(base_j_layer)
+        self.basis_symbols = flatten(self.graded_basis_symbols)
+    def build_dual_basis_symbols(self,symbol_for_dual='@'):
+        if self.basis_symbols == None:
+            print('Error: first you need to basis_symbols')
+            return None
+        self.dual_basis_symbols = [ \
+                symbols(b_vect.name+symbol_for_dual,commutative=False) \
+                for b_vect in self.basis_symbols ]
+    def build_basis_LI_diff_operators(self,order):
+        """
+Build the list basi = self.basis_LI_diff_operators, where
+basi[0] = [1]
+basi[1] = self.basis_symbols
+basi[2] = [a*b for a in basi[1] for b in basi[1]]
+etc...
+basi[order] = ...
+Notice that len(basi) = order + 1 
+        """
+        if order >= 0:
+            self.basis_LI_diff_operators = [[1]]
+        if order >= 1:
+            self.basis_LI_diff_operators += [self.basis_symbols]
+        if order > 1:
+            for j in range(order-1):
+                first_bas = self.basis_symbols
+                prev_bas = self.basis_LI_diff_operators[-1]
+                new_bas = []
+                for aa in old_bas:
+                    for bb in first_bas:
+                        new_bas.append(aa*bb)
+                self.basis_LI_diff_operators += new_bas
+                    for bb in 
+
 
 class RiemLieAlgebra(LieAlgebra):
     """\
