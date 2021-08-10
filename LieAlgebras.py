@@ -28,9 +28,9 @@ def build_monomials_nc(variables,order):
         >>> monomials[0]
         [1]
         >>> monomials[1]
-        [x,y,z]
+        [x,y]
         >>> monomials[2]
-        [x*x,x*y,y*x,y*y]
+        [x**2,x*y,y*x,y**2]
         >>> len(monomials)
         3
 
@@ -42,7 +42,7 @@ def build_monomials_nc(variables,order):
             monomials += [variables]
         if order > 1:
             for j in range(order-1):
-                monomials += [ a*b for a in monomials[-1] for b in variables ]
+                monomials += [[ a*b for a in monomials[-1] for b in variables ]]
         return monomials
 
 def isubs(expr,rules,MAX=100): 
@@ -67,12 +67,12 @@ def isubs(expr,rules,MAX=100):
     >>> x,y,z = symbols('x y z',commutative=False)
     >>> rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
     >>> isubs(y*x,rules)
-    x*y - z
+    (x*y - z, 2)
     >>> isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,100)
-    -13*x**12*z + x**13*y
+    (-13*x**12*z + x**13*y, 14)
     >>> isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,5)
     max iter reached!
-    -5*x**4*z*x**8 + x**5*y*x**8
+    (-5*x**4*z*x**8 + x**5*y*x**8, 5)
 
     """
     expr_simplified = expand(expr)
@@ -84,8 +84,11 @@ def isubs(expr,rules,MAX=100):
             return new_expr_simplified, iterazione
         else:
             expr_simplified = new_expr_simplified
-    print('Warning: Max iterations reached!')
+    print('Warning from isubs(): Max iterations reached!')
     return expr_simplified, iterazione
+
+def isubs_force(expr,rules,MAX=100): 
+    return isubs(expr,rules,MAX)[0]
 
 # questo lo possiamo fare usando ism
 def dualize(expr,base_from,base_to):
@@ -112,7 +115,7 @@ def build_weight_list(growth_vector):
     weights = []
     for w in range(step):
         weights += [ w+1 for i in range(growth_vector[w]) ]
-    return weigths
+    return weights
 
 def weight_from_growth_vector(growth_vector,multi_index):
     """
@@ -127,8 +130,8 @@ def weight_from_growth_vector(growth_vector,multi_index):
     Examples
     ========
 
-    >>> weight([2,1,0,3],(1,2,3,4,5,6)]
-    159
+    >>> weight_from_growth_vector([2,1,0,3],(1,2,3,4,5,6)]
+    69
 
     """
     weights = build_weight_list(growth_vector)
@@ -154,7 +157,7 @@ def weight_from_weights(weights,multi_index):
     Examples
     ========
 
-    >>> weight([2,1,0,3],(1,2,3,4,5,6)]
+    >>> weight_from_weights([1, 1, 2, 4, 4, 4],(1,2,3,4,5,6))
     159
 
     """
@@ -167,16 +170,25 @@ def weight_from_weights(weights,multi_index):
 
 def build_graded_indeces_dict(growth_vector, depth):
     """
+    Builds a dictionary of indeces.
+
     Builds a dictionary ``I`` so that ``I[k]`` is the list of all tuples ``(i_1,...,i_n)`` (where ``n`` is the dimension, i.e., ``sum(growth_vector)``) whose weight is ``k``.
     ``k`` runs from 1 to *depth*.
+    
+    NB! ``I[k]`` is ordered how the function ``set`` orders it.
+
+    Examples
+    ========
+
     >>> build_graded_indeces_dict([2,1], 3)
     {1: [(1, 0, 0), (0, 1, 0)],
      2: [(0, 2, 0), (1, 1, 0), (0, 0, 1), (2, 0, 0)],
      3: [(1, 0, 1), (1, 2, 0), (2, 1, 0), (3, 0, 0), (0, 3, 0), (0, 1, 1)]}
     >>> build_graded_indeces_dict([2],3)
-    {1: [(1,0),(0,1)],
-     2: [(2,0),(0,2),(1,1)],
-     3: [(3,0),(2,1),(1,2),(0,3)]
+    {1: [(1, 0), (0, 1)],
+ 2: [(1, 1), (2, 0), (0, 2)],
+ 3: [(0, 3), (1, 2), (2, 1), (3, 0)]}
+
     """
     dimension = sum(growth_vector)
     step = len(growth_vector)
@@ -204,7 +216,7 @@ def build_graded_indeces_dict(growth_vector, depth):
                 new_Ij.append(tuple(idx_n))
                 continue
             # else:
-            for idx in I[j-weights[k]]:
+            for idx in graded_indeces_dict[j-weights[k]]:
                 idx_n = list(idx)
                 idx_n[k]+=1
                 new_Ij.append(tuple(idx_n))
@@ -229,7 +241,7 @@ def monomial_ordered(variables,multi_index):
     =======
     
     >>> x,y,z = symbols('x y z',commutative=False)
-    >>> monomial([x, y, z],(0, 2, 1))
+    >>> monomial_ordered([x, y, z],(0, 2, 1))
     y**2*z
 
     """
@@ -253,6 +265,9 @@ def noncomm_pol_dict(pol):
     >>> p = 2 + 3*x + 4*s*x + 5*x*x + 6*x*y + 7*y*x
     >>> noncomm_pol_dict(p)
     {1: 2, x: 4*s + 3, x**2: 5, x*y: 6, y*x: 7}
+    >>> noncomm_pol_dict(x*y)
+    {1: 0, x*y: 1}
+
     """
     poll = expand(pol)
     # poll = 2 + 3*x + 4*s*x + 5*x*x + 6*x*y + 7*y*x
@@ -263,9 +278,9 @@ def noncomm_pol_dict(pol):
         pm = pa.args_cnc() # in sympy.core.expr
         coeff = mul_list(pm[0])
         mon = mul_list(pm[1])
-        coeff_dict[mon] = coeff_dict.setdefault(mon,0) + coeff
-    # coeff_dict = {1: 2, x: 4*s + 3, x**2: 5, x*y: 6, y*x: 7}
-    return coeff_dict
+        pol_dict[mon] = pol_dict.setdefault(mon,0) + coeff
+    # pol_dict = {1: 2, x: 4*s + 3, x**2: 5, x*y: 6, y*x: 7}
+    return pol_dict
 
 def reverse_order(monomial): 
     """
@@ -491,43 +506,46 @@ Otherwise, use bch_trnc(v,w,N) with level of precision N.
         else:
             self.step = step
         print("step set to ",self.step," (You should check that the Lie algebra is nilpotent!)")
+
     def build_graded_basis_symbols(self):
         """
-Per Heisenberg:
-x,y,z = symbols('x y z',commutative=False)
-self.graded_basis_symbols = [[x,y],[z]]
-self.basis_symbols = flatten(self.graded_basis_symbols)
-xd,yd,zd = symbols('x^+ y^+ z^+',commutative=False) # dual elements
-self.dual_basis_symbols = [xd,yd,zd]
+        Per Heisenberg:
+        x,y,z = symbols('x y z',commutative=False)
+        self.graded_basis_symbols = [[x,y],[z]]
+        self.basis_symbols = flatten(self.graded_basis_symbols)
+        xd,yd,zd = symbols('x^+ y^+ z^+',commutative=False) # dual elements
+        self.dual_basis_symbols = [xd,yd,zd]
         """
-        if self.is_graded == None or self.is_graded:
-            print('The algebra must be graded')
+        if self.is_graded == None or not self.is_graded:
+            print('Error from build_graded_basis_symbols : The algebra must be graded')
             return None
         self.graded_basis_symbols = []
-        for j in range(len(self.growth_vector)):
+        growth_vector = self.growth_vector
+        for j in range(len(growth_vector)):
             base_j_layer = []
             for k in range(growth_vector[j]):
                 base_j_layer.append(symbols('b^'+str(j)+'_'+str(k),commutative=False))
             self.graded_basis_symbols.append(base_j_layer)
         self.basis_symbols = flatten(self.graded_basis_symbols)
-    def build_dual_basis_symbols(self,symbol_for_dual='@'):
+
+    def build_dual_basis_symbols(self,pre_symbol_for_dual='@',post_symbol_for_dual=''):
         if self.basis_symbols == None:
-            print('Error: first you need to basis_symbols')
+            print('Error from build_dual_basis_symbols: first you need to basis_symbols')
             return None
         self.dual_basis_symbols = [ \
-                symbols(b_vect.name+symbol_for_dual,commutative=False) \
+                symbols(pre_symbol_for_dual + b_vect.name + post_symbol_for_dual,commutative=False) \
                 for b_vect in self.basis_symbols ]
     def build_basis_tensors(self,order):
         """
-Build the list basi = self.basis_tensors_symbols, 
-where basi[k] is the basis of tensors of order k,
-for k from 0 to 'order':
-basi[0] = [1]
-basi[1] = self.basis_symbols
-basi[2] = [a*b for a in basi[1] for b in basi[1]]
-etc...
-basi[order] = ...
-Notice that len(basi) = order + 1 
+        Build the list basi = self.basis_tensors_symbols, 
+        where basi[k] is the basis of tensors of order k,
+        for k from 0 to 'order':
+        basi[0] = [1]
+        basi[1] = self.basis_symbols
+        basi[2] = [a*b for a in basi[1] for b in basi[1]]
+        etc...
+        basi[order] = ...
+        Notice that len(basi) = order + 1 
         """
         if order >= 0:
             self.basis_tensors_symbols = [[1]]
@@ -540,10 +558,10 @@ Notice that len(basi) = order + 1
                         ]
     def build_rules_vector_fields(self):
         """
-Example in the Heisenberg group:
-rules[y*x] = x*y - z
-i.e.,
-rules = { y*x : x*y - z }
+        Example in the Heisenberg group:
+        rules[y*x] = x*y - z
+        i.e.,
+        rules = { y*x : x*y - z }
         """
         if self.basis_symbols == None:
             print('Error: first you need to build basis_symbols')
@@ -561,17 +579,68 @@ rules = { y*x : x*y - z }
                     res += bk[k]*basis[k]
                 self.rules_vector_fields[basis[i]*basis[j]] = res
     def basis_HD(self,order):
+        """
+        Computes a basis $(A_I)_{I\in \scr I^a}$ of $HD^a(\mathfrak g;\R)$, for $a$ equal to *order*.
+
+        Example 1:
+        ==========
+
+        >>> from LieAlgebras import *
+        >>> heis = LieAlgebra(3)
+        >>> heis.dimension = 3
+        >>> heis.structure_constants_build({(0,1) : [(1,2)]})
+        >>> heis.declare_stratified(True,2,[2,1])
+        >>> x,y,z = symbols('x y z',commutative=False)
+        >>> heis.graded_basis_symbols = [[x,y],[z]]
+        >>> heis.basis_symbols = flatten(heis.graded_basis_symbols)
+        >>> xd,yd,zd = symbols('x^+ y^+ z^+',commutative=False) # dual elements
+        >>> heis.dual_basis_symbols = [xd,yd,zd]
+        >>> heis.build_rules_vector_fields()
+        >>> heis.basis_HD(1)
+        {(1, 0, 0): x^+, (0, 1, 0): y^+}
+        >>> heis.basis_HD(2)
+        {(0, 2, 0): y^+**2,
+         (1, 1, 0): x^+*y^+ + y^+*x^+,
+         (0, 0, 1): -x^+*y^+,
+         (2, 0, 0): x^+**2} 
+        >>> heis.basis_HD(3)
+        {(1, 0, 1): -x^+*y^+*x^+ - 2*x^+**2*y^+,
+         (1, 2, 0): x^+*y^+**2 + y^+*x^+*y^+ + y^+**2*x^+,
+         (2, 1, 0): x^+*y^+*x^+ + x^+**2*y^+ + y^+*x^+**2,
+         (3, 0, 0): x^+**3,
+         (0, 3, 0): y^+**3,
+         (0, 1, 1): -2*x^+*y^+**2 - y^+*x^+*y^+}
+
+        Example 2:
+        ==========
+
+        >>> from LieAlgebras import *
+        >>> heis = LieAlgebra(3)
+        >>> heis.dimension = 3
+        >>> heis.structure_constants_build({(0,1) : [(1,2)]})
+        >>> heis.declare_stratified(True,2,[2,1])
+        >>> heis.build_graded_basis_symbols()
+        >>> heis.build_dual_basis_symbols('@','#')
+        >>> heis.build_rules_vector_fields()
+        >>> heis.basis_HD(2)
+        {(0, 2, 0): @b^0_1#**2,
+         (1, 1, 0): @b^0_0#*@b^0_1# + @b^0_1#*@b^0_0#,
+         (0, 0, 1): -@b^0_0#*@b^0_1#,
+         (2, 0, 0): @b^0_0#**2}
+
+        """
         basis = self.basis_symbols
         dual_basis = self.dual_basis_symbols
         basis_V1 = self.graded_basis_symbols[0]
-        basis_T_a_V1 = build_monomials_nc(basis_V1,order)
-        indeces_a_hom = build_graded_indeces_dict(self.growth_vector,order)
+        rules = self.rules_vector_fields
+        basis_T_a_V1 = build_monomials_nc(basis_V1,order)[order]
+        indeces_a_hom = build_graded_indeces_dict(self.growth_vector,order)[order]
         basis_HD_a = {}
-        for idx in indeces_a_hom[order]:
+        for idx in indeces_a_hom:
             A = 0
             mon = monomial_ordered(basis,idx)
             for xi in basis_T_a_V1:
-                tau_bb = build_graded_indeces_dict(isubs(xi,rules))
+                tau_bb = noncomm_pol_dict(isubs_force(xi,rules))
                 tau_bb_I = tau_bb.get(mon,0)
                 A += tau_bb_I * dualize(reverse_order(xi),basis,dual_basis)
             basis_HD_a[idx] = A
