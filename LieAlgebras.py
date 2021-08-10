@@ -99,6 +99,7 @@ def build_weight_list(growth_vector):
 
     >>> build_weight_list([2,1,0,3])
     [1,1,2,4,4,4]
+
     """
     step = len(growth_vector)
     weights = []
@@ -106,7 +107,7 @@ def build_weight_list(growth_vector):
         weights += [ w+1 for i in range(growth_vector[w]) ]
     return weigths
 
-def weight(growth_vector,multi_index):
+def weight_from_growth_vector(growth_vector,multi_index):
     """
     Compute the weight of a multi-index.
     
@@ -130,6 +131,79 @@ def weight(growth_vector,multi_index):
     for i in range(dimension):
         res += weights[i]*multi_index[i]
     return res
+
+def weight_from_weights(weights,multi_index):
+    """
+    Compute the weight of a multi-index, using the list of weights.
+    
+    TODO: Rewrite this:
+
+    Given a list *growth_vector* and a list *multi_index*, ``weights`` computes the weight of the multi-index.
+    Notice that we need ``sum(growth_vector) = len(multi_index)``.
+
+    Mathemattically, a multi-index is a tuple $I = (i_1,\dots,i_n)$ of the length of the dimension ``dim = sum(growth_vector)``.
+    The growth vector defines a list of weights $(w_1,\dots,w_n)$ and the weight of $I$ is $w(I) = \sum_{i=1}^n w_iI_i$.
+
+    Examples
+    ========
+
+    >>> weight([2,1,0,3],(1,2,3,4,5,6)]
+    159
+
+    """
+    dimension = len(weights)
+    # TODO: check that dimension == len(multi_index)
+    res = 0
+    for i in range(dimension):
+        res += weights[i]*multi_index[i]
+    return res
+
+def build_graded_indeces_dict(growth_vector, depth):
+    """
+    Builds a dictionary ``I`` so that ``I[k]`` is the list of all tuples ``(i_1,...,i_n)`` (where ``n`` is the dimension, i.e., ``sum(growth_vector)``) whose weight is ``k``.
+    ``k`` runs from 1 to *depth*.
+    >>> build_graded_indeces_dict([2,1], 3)
+    {1: [(1, 0, 0), (0, 1, 0)],
+     2: [(0, 2, 0), (1, 1, 0), (0, 0, 1), (2, 0, 0)],
+     3: [(1, 0, 1), (1, 2, 0), (2, 1, 0), (3, 0, 0), (0, 3, 0), (0, 1, 1)]}
+    >>> build_graded_indeces_dict([2],3)
+    {1: [(1,0),(0,1)],
+     2: [(2,0),(0,2),(1,1)],
+     3: [(3,0),(2,1),(1,2),(0,3)]
+    """
+    dimension = sum(growth_vector)
+    step = len(growth_vector)
+    weights = build_weight_list(growth_vector)
+    graded_indeces_dict = {}
+    """
+    The algorithm is:
+    For j from 1 to *depth*, we construnct I[j] as follows:
+    for each k from 1 to dim, 
+    we add 1 to at the k-th slot of some multi-index idx of lower weight,
+    obtaining a new multi-index idx_new whose weight is w(idx_new) = w(idx) + w[k],
+    which must be equal to j.
+    So, w(idx) = j-w[k], i.e., idx is in I[j-w[k]].
+    If j-w[k] = 0, then we must have idx=0.
+    If j-w[k] < 0, then we cannot have any suitable idx.
+    """
+    for j in range(1,depth+1):
+        new_Ij = []
+        for k in range(dimension):
+            if j-weights[k] < 0:
+                continue
+            if j-weights[k] == 0:
+                idx_n = [0 for j in range(dimension)]
+                idx_n[k]+=1
+                new_Ij.append(tuple(idx_n))
+                continue
+            # else:
+            for idx in I[j-weights[k]]:
+                idx_n = list(idx)
+                idx_n[k]+=1
+                new_Ij.append(tuple(idx_n))
+        # The previous loop produces duplicates, which are eliminated by ``list(set())``.
+        graded_indeces_dict[j] = list(set(new_Ij))
+    return graded_indeces_dict
 
 class LieAlgebra:
     dimension = None
