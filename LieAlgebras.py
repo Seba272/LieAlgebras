@@ -46,10 +46,14 @@ def build_monomials_nc(variables,order):
         return monomials
 
 def isubs(expr,rules,MAX=100): 
-    """Iterated Symbolic Substitions.
+    """
+    Iterated Symbolic Substitions.
 
     Applies *rules* to *expr* iteratively until *expr* does not change anymore,
     or *MAX* iterations are done.
+    The output consists of a pair: the simplified expression and the number of iterations performed.
+    If the number of iteration is equal to *MAX*, it means that the simplification was not complete.
+    Otherwise, the number of iterations is between 1 and *MAX*-1.
 
     NB! ``.subs(rules)`` applies rules only once. This is why we need an iterated version.
 
@@ -57,6 +61,8 @@ def isubs(expr,rules,MAX=100):
     
     Examples
     ========
+
+    (These examples need to be re-run)
 
     >>> x,y,z = symbols('x y z',commutative=False)
     >>> rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
@@ -75,11 +81,11 @@ def isubs(expr,rules,MAX=100):
         iterazione+=1
         new_expr_simplified = expand(expr_simplified.subs(rules))
         if new_expr_simplified == expr_simplified :
-            return new_expr_simplified
+            return new_expr_simplified, iterazione
         else:
             expr_simplified = new_expr_simplified
-    print('Max iterations reached!')
-    return expr_simplified
+    print('Warning: Max iterations reached!')
+    return expr_simplified, iterazione
 
 class LieAlgebra:
     dimension = None
