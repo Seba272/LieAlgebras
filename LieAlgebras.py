@@ -212,6 +212,26 @@ def mul_list(ll):
         res = res * l
     return res
 
+def monomial_ordered(variables,multi_index):
+    """
+    Produces $b^I = b_1^{I_1}\cdots b_n^{I_n}$.
+
+    This method usually makes sense only for commutative variables.
+
+    Example
+    =======
+    
+    >>> x,y,z = symbols('x y z',commutative=False)
+    >>> monomial([x, y, z],(0, 2, 1))
+    y**2*z
+
+    """
+    # TODO: all the checkings!
+    res = 1
+    for j in range(len(variables)):
+        res *= variables[j]**multi_index[j]
+    return res
+
 def noncomm_pol_dict(pol):
     """
     Represent a polynomial *pol* as a dictionary ``pol_dict[monomial] = coefficiet``.
