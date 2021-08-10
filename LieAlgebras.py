@@ -1,29 +1,73 @@
 from sympy import *
 import time as time
 
+# For docstring, I use this formatting:
+# https://docs.sympy.org/latest/documentation-style-guide.html
+
 # SOME MATERIAL FOR NON-COMMUTATIVE ALGEBRAS :
 # This will be used for tensors and vector fields.
+def build_monomials_nc(variables,order):
+        """
+        Build a list of lists of non commutative monomials.
+
+        Inputs:
+        -------
+        *variables*: list of (non commutative) variables
+        *order*: maximal order we are interested in
+
+        Output:
+        -------
+        a list ``monomials``, where ``monomials[k]`` is the list of all monomials of order ``k``, for ``k`` from 0 to *order*.
+        Notice that ``len(monomials) = order + 1``.
+
+        Examples
+        ========
+
+        >>> x,y,z = symbols('x y z',commutative=False)
+        >>> monomials = build_monomials_nc([x,y,z],2)
+        >>> monomials[0]
+        [1]
+        >>> monomials[1]
+        [x,y,z]
+        >>> monomials[2]
+        [x*x,x*y,y*x,y*y]
+        >>> len(monomials)
+        3
+
+        """
+        monomials = []
+        if order >= 0:
+            monomials = [[1]]
+        if order >= 1:
+            monomials += [variables]
+        if order > 1:
+            for j in range(order-1):
+                monomials += [ a*b for a in monomials[-1] for b in variables ]
+        return monomials
+
 def isubs(expr,rules,MAX=100): 
     """Iterated Symbolic Substitions.
 
-    Applies _rules_ to _expr_ iteratively until _expr_ does not change anymore,
-    or _MAX_ iterations are done.
+    Applies *rules* to *expr* iteratively until *expr* does not change anymore,
+    or *MAX* iterations are done.
 
-    NB! .subs(rules) applies rules only once. This is why we need an iterated version.
+    NB! ``.subs(rules)`` applies rules only once. This is why we need an iterated version.
 
     NB! Every time rules are applied, the expression is also expanded.
     
-    Example:
+    Examples
     ========
-    > x,y,z = symbols('x y z',commutative=False)
-    > rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
-    > isubs(y*x,rules)
+
+    >>> x,y,z = symbols('x y z',commutative=False)
+    >>> rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
+    >>> isubs(y*x,rules)
     x*y - z
-    > isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,100)
+    >>> isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,100)
     -13*x**12*z + x**13*y
-    > isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,5)
+    >>> isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,5)
     max iter reached!
     -5*x**4*z*x**8 + x**5*y*x**8
+
     """
     expr_simplified = expand(expr)
     iterazione = 0
