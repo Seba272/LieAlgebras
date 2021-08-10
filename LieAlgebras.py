@@ -205,6 +205,41 @@ def build_graded_indeces_dict(growth_vector, depth):
         graded_indeces_dict[j] = list(set(new_Ij))
     return graded_indeces_dict
 
+def mul_list(ll):
+    """Multiply elements of a list, in order."""
+    res = 1
+    for l in ll:
+        res = res * l
+    return res
+
+def noncomm_pol_dict(pol):
+    """
+    Represent a polynomial *pol* as a dictionary ``pol_dict[monomial] = coefficiet``.
+
+    *pol* is considered as a polynomial over a commutative ring (the coefficients) with noncommutative variables.
+    
+    Example
+    =======
+
+    >>> x, y = symbols('x y', commutative = False)
+    >>> s = symbols('s', commutative = True)
+    >>> p = 2 + 3*x + 4*s*x + 5*x*x + 6*x*y + 7*y*x
+    >>> noncomm_pol_dict(p)
+    {1: 2, x: 4*s + 3, x**2: 5, x*y: 6, y*x: 7}
+    """
+    poll = expand(pol)
+    # poll = 2 + 3*x + 4*s*x + 5*x*x + 6*x*y + 7*y*x
+    pol_addends = flatten(poll.as_coeff_add())
+    # pol_addends = [2, 3*x, 5*x**2, 4*s*x, 6*x*y, 7*y*x]
+    pol_dict = {}
+    for pa in pol_addends:
+        pm = pa.args_cnc() # in sympy.core.expr
+        coeff = mul_list(pm[0])
+        mon = mul_list(pm[1])
+        coeff_dict[mon] = coeff_dict.setdefault(mon,0) + coeff
+    # coeff_dict = {1: 2, x: 4*s + 3, x**2: 5, x*y: 6, y*x: 7}
+    return coeff_dict
+
 class LieAlgebra:
     dimension = None
     basis_symbols = None
