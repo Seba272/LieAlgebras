@@ -260,6 +260,16 @@ def noncomm_pol_dict(pol):
     # coeff_dict = {1: 2, x: 4*s + 3, x**2: 5, x*y: 6, y*x: 7}
     return coeff_dict
 
+def reverse_order(monomial): 
+    """
+    Takes ``x*y`` and outputs ``y*x``. Only for monomials.
+    TODO: Extend it to polynomials?
+    """
+    mon = monomial.as_coeff_mul()[1]
+    mon = list(mon)
+    mon.reverse()
+    return mul_list(mon)
+
 class LieAlgebra:
     dimension = None
     basis_symbols = None
