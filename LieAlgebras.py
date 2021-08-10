@@ -87,6 +87,13 @@ def isubs(expr,rules,MAX=100):
     print('Warning: Max iterations reached!')
     return expr_simplified, iterazione
 
+# questo lo possiamo fare usando ism
+def dualize(expr,base_from,base_to):
+    dimension = len(base_from)
+    for j in range(dimension):
+        expr = expr.subs(base_from[j],base_to[j])
+    return expr
+
 def build_weight_list(growth_vector):
     """
     Builds the list of weights.
@@ -553,6 +560,22 @@ rules = { y*x : x*y - z }
                 for k in range(dim):
                     res += bk[k]*basis[k]
                 self.rules_vector_fields[basis[i]*basis[j]] = res
+    def basis_HD(self,order):
+        basis = self.basis_symbols
+        dual_basis = self.dual_basis_symbols
+        basis_V1 = self.graded_basis_symbols[0]
+        basis_T_a_V1 = build_monomials_nc(basis_V1,order)
+        indeces_a_hom = build_graded_indeces_dict(self.growth_vector,order)
+        basis_HD_a = {}
+        for idx in indeces_a_hom[order]:
+            A = 0
+            mon = monomial_ordered(basis,idx)
+            for xi in basis_T_a_V1:
+                tau_bb = build_graded_indeces_dict(isubs(xi,rules))
+                tau_bb_I = tau_bb.get(mon,0)
+                A += tau_bb_I * dualize(reverse_order(xi),basis,dual_basis)
+            basis_HD_a[idx] = A
+        return basis_HD_a
 
 
 
