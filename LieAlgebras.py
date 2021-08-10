@@ -360,6 +360,7 @@ class LieAlgebra:
     _growth_vector = None
     _graded_basis_symbols = None
     _basis_HD = {}
+    _a_basis_of_brackets = None
 #    def __init__(self,dim,struct_const='Gamma'):
 #        self._dimension = dim
 #        self.structure_constants_build(struct_const)
@@ -832,8 +833,101 @@ class LieAlgebra:
             basis_HD_a[idx] = A
         self._basis_HD[order] = basis_HD_a
 
+    def _a_basis_of_brackets_(self):
+        """
+        Returns a basis in coordinates for *self* out of the set of all brackets of vectors of the first strata.
+        And a dictionary to see for each vector who are his parents.
+
+        Works only for stratified Lie algebras.
+        """
+        if not self.is_stratified:
+            print('Error from _a_basis_of_brackets_: self must be stratified. Method cannot work.')
+        if self._a_basis_of_brackets = None:
+            _a_basis_of_brackets_build()
+        return self._a_basis_of_brackets, self._a_basis_of_brackets_dict
+    
+    def _a_basis_of_brackets_build_(self):
+        """
+        Builds ``self._a_basis_of_brackets``, that is, a basis in coordinates for *self* out of the set of all brackets.
+
+        Works only for stratified Lie algebras.
+        """
+        if not self.is_stratified:
+            print('Error from _a_basis_of_brackets_build_: self must be stratified. Method cannot work.')
+            return 
+        dimension = self.dimension()
+        dimension_1 = self.growth_vector()[0]
+        basis_1 = eye(dimension)[:,dimension_1].columnspace()
+        basis = [basis_1]
+        prev_len = 0
+        new_len = len(flatten(basis))
+        basis_decoupling = {}
+        while prev_len < new_len:
+            prev_len = new_len
+            vects_trpl = [[v,w,self.brackets(v,w)] for v in basis_1 for w in basis[-1]]
+            vects = [VV[2] for VV in vects_trpl]
+            basis.append(maximal_lin_ind(vects.reverse())) # Since this method starts from the last element, for the subsequent lines it is better to reverse vects
+            for bb in basis[-1]:
+                for VV in vects_trpl:
+                    if bb == VV[2]:
+                        basis_decoupling[bb] = VV[:2]
+                        continue
+            new_len = len(flatten(basis))
+        self._a_basis_of_brackets = flatten(basis)
+        self._a_basis_of_brackets_dict = basis_decoupling
+
+    def _a_basis_of_brackets_matrix_(self):
+        """
+        Returns a matrix M whose colomuns are the coordinates of the standard basis in the new basis.
+        """
+        if self._a_basis_of_brackets_matrix == None:
+            self._a_basis_of_brackets_matrix_build()
+        return self._a_basis_of_brackets_matrix
+
+    def _a_basis_of_brackets_matrix_build_(self):
+        basis = self._a_basis_of_brackets_()
+        self._a_basis_of_brackets_matrix = Matrix(basis).transpose().inv()
+
+class LinearMap():
+    _lie_algebra_domain = None
+    _map_dict = None
+
+    def map_dict(self):
+        if self._map_dict == None:
+            print('Errore from map_dict: the map is not defined.')
+        return self._map_dict
+
+    def map_dict_set(self,md):
+        self._map_dict = md
+
+    def lie_algebra_domain(self):
+        return self._lie_algebra_domain
+
+    def lie_algebra_domain_set(self,lie_alg):
+        self._lie_algebra_domain = lie_alg
+    
+    def extend_from_V1(self,diz_V1):
+        lie_alg = self.lie_algebra_domain()
+        if not lie_alg.is_stratified:
+            print('Error from extend_from_V1() : The Lie algebra must be stratified. Method breaks down.')
+            return
+        dimension = lie_alg.dimension()
+        dimension_1 = lie_alg.growth_vector()[0]
+        basis_std = eye(dimension).columnspace()
+        basis_1 = basis_std[:dimension_1]
+        bas_bra , bas_bra_dict = lie_alg._a_basis_of_brackets_()
+        bas_bra_matr = lie_alg._a_basis_of_brackets_matrix_()
+        map_dict = diz_V1
+        for j in range(dimension_1,dimension):
+            ej = Matrix(basis_std[j])
+            mj = bas_bra_matr.col(j)
+# NOT COMPLETE!
 
 
+
+
+            
+        
 
 
 
