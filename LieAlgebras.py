@@ -87,6 +87,50 @@ def isubs(expr,rules,MAX=100):
     print('Warning: Max iterations reached!')
     return expr_simplified, iterazione
 
+def build_weight_list(growth_vector):
+    """
+    Builds the list of weights.
+
+    Given a list *growth_vector*, that is, a list of non-negative integers ``[d1,d2,...]``,
+    it builds the list of weigths ``[1,1,...,2,2,...]`` where ``j`` appears ``dj`` times.
+
+    Examples
+    ========
+
+    >>> build_weight_list([2,1,0,3])
+    [1,1,2,4,4,4]
+    """
+    step = len(growth_vector)
+    weights = []
+    for w in range(step):
+        weights += [ w+1 for i in range(growth_vector[w]) ]
+    return weigths
+
+def weight(growth_vector,multi_index):
+    """
+    Compute the weight of a multi-index.
+    
+    Given a list *growth_vector* and a list *multi_index*, ``weights`` computes the weight of the multi-index.
+    Notice that we need ``sum(growth_vector) = len(multi_index)``.
+
+    Mathemattically, a multi-index is a tuple $I = (i_1,\dots,i_n)$ of the length of the dimension ``dim = sum(growth_vector)``.
+    The growth vector defines a list of weights $(w_1,\dots,w_n)$ and the weight of $I$ is $w(I) = \sum_{i=1}^n w_iI_i$.
+
+    Examples
+    ========
+
+    >>> weight([2,1,0,3],(1,2,3,4,5,6)]
+    159
+
+    """
+    weights = build_weight_list(growth_vector)
+    dimension = sum(growth_vector)
+    # TODO: check that dimension == len(multi_index)
+    res = 0
+    for i in range(dimension):
+        res += weights[i]*multi_index[i]
+    return res
+
 class LieAlgebra:
     dimension = None
     basis_symbols = None
