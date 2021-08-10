@@ -292,48 +292,167 @@ def reverse_order(monomial):
     mon.reverse()
     return mul_list(mon)
 
+def maximal_lin_ind(vectors):
+    """
+    Produces a maximal subset of *vectors* of linearly independent vectors.
+
+    *vectors* can be any iterable of vectors.
+    The output will be a list of lists.
+
+    Example
+    =======
+    
+    >>> from random import randrange
+    >>> vlist = []
+    >>> dim = 10
+    >>> how_many = 10
+    >>> for i in range(how_many):
+    >>>     vlist.append([randrange(100) for j in range(dim)])
+    >>> m = Matrix(maximal_lin_ind(vlist))
+    >>> m.rank()
+
+    Of course, in this code, the rank will be almost always maximal, by statistical reasons.
+
+    """
+    card = len(vectors)
+    if card == 0:
+        return []
+    dim = len(vectors[0])
+    if dim == 0:
+        return []
+    max_iterations = max(card, dim)
+    #vect_cp = vectors.copy()
+    vect_cp = [list(v) for v in vectors]
+    vect_li = []
+    rank = 0
+    while 1:
+        v = vect_cp.pop()
+        m = Matrix(vect_li + [v])
+        if m.rank() > rank :
+            rank += 1
+            vect_li += [v]
+        if rank == dim or vect_cp == []:
+            break
+    return vect_li
+
+
+
+
+
+
+
+
+
+
+
 class LieAlgebra:
-    dimension = None
-    basis_symbols = None
+    _dimension = None
+    _basis_symbols = None
+    _structure_constants = None
+    _rules_structure_constants = None
+    _rules_basis_symbols = None
+    _rules_vector_fields = None
+    _dual_basis_symbols = None
     is_nilpotent = None
-    step = None
+    _step = None
     is_graded = None
     is_stratified = None
-    growth_vector = None
-    graded_basis_symbols = None
-    basis_LI_diff_operators = None
-    rules_vector_fields = None
-    basis_tensors_symbols = None
-    def __init__(self,dim,struct_const='Gamma'):
-        self._dimension = dim
-        self.structure_constants_build(struct_const)
-    def structure_constants(self):
-        try:
-            self._structure_constants
-        except AttributeError:
-            self.structure_constants_build(self)
-        return self._structure_constants
-    def structure_constants_build(self,rules=None):
-        """\
-A.define_brackets(rules)
-where ``rules`` is a dictionary with entries (index1,index2):[(coeff, index_vect),...]
-{(i,j):[(a,2),(b,3)]}
-means that bracket(bi,bj) = a*b2 + b*b3
-Always i<j !!
-Some examples:
-Heisenberg Lie algebra (dim = 3): heis = {(0,1) : [(1,2)]}
-so(2) (dim = 3) : so2 = { (0,1):[(1,2)] , (1,2):[(2,1)] , (0,2):[(-2,0)] }
-so(2)xR (dim = 4) : so2R = so2 
-A_{4,3} (dim = 4) : a43 = { (1,3) : [(-1,1)] , (2,3):[(-1,0)] }
+    _growth_vector = None
+    _graded_basis_symbols = None
+    _basis_HD = {}
+#    def __init__(self,dim,struct_const='Gamma'):
+#        self._dimension = dim
+#        self.structure_constants_build(struct_const)
+    
+    def dimension(self):
         """
-        if rules == None or type(rules) == str :
-            self._structure_constants_build_abstract(rules)
+        Returns the dimension of self.
+        If it is not set yet, it asks for it.
+        """
+        if self._dimension == None:
+            ans = input('Dimension of self not declared yet: do you want to set it now? (Y/n)')
+            if ans[0] == 'y' or ans[0] == 'Y':
+                dim = int(input('Dimension = '))
+                self.dimension_set(dim)
+        return self._dimension
+
+    def dimension_set(self,dim):
+        self._dimension = dim
+
+    def dimension_get(self):
+        return self._dimension
+
+    def basis_symbols(self):
+        if self._basis_symbols == None:
+            self.basis_symbols_build()
+        return self._basis_symbols
+    
+    def basis_symbols_build(self,smbl='b'):
+        if self.is_graded :
+            if self._graded_basis_symbols == None:
+                self.graded_basis_symbols_build(smbl)
+            self._basis_symbols = flatten(self.graded_basis_symbols())
         else:
+            dim = self.dimension()
+            self._basis_symbols = [symbols(smbl+'_'+str(j) for j in range(dim))]
+
+    def basis_symbols_set(self,basis):
+        self._basis_symbols = basis
+
+    def structure_constants(self):
+        """
+        Returns the structur constants of self.
+
+        If they are not here yet, we build them.
+        """
+        if self._structure_constants == None:
+            self.structure_constants_build()
+        return self._structure_constants
+
+    def structure_constants_build(self,rules=None):
+        """
+        Build structure constants of self using a dictionary *rules*.
+
+        *rules* is a dictionary with entries (index1,index2):[(coeff, index_vect),...]
+        {(i,j):[(a,2),(b,3)]}
+        means that bracket(bi,bj) = a*b2 + b*b3
+        Always i<j !!
+
+        Examples
+        ========
+        
+        Heisenberg Lie algebra (dim = 3): heis = {(0,1) : [(1,2)]}
+        so(2) (dim = 3) : so2 = { (0,1):[(1,2)] , (1,2):[(2,1)] , (0,2):[(-2,0)] }
+        so(2)xR (dim = 4) : so2R = so2 
+        A_{4,3} (dim = 4) : a43 = { (1,3) : [(-1,1)] , (2,3):[(-1,0)] }
+
+        """
+        if rules == None:
+            self._structure_constants_build_abstract(rules)
+        elif type(rules) == str:
+            self._structure_constants_build_examples(rules)
+        elif type(rules) == dict:
             self._structure_constants_build_from_rules(rules)
+        else:
+            print('Error from structure_constants_build: *rules* must be ``None``, a string or a dictionary. Instead, it was of type ', type(rules))
+
+    def _structure_constants_build_examples(self,name):
+        pass
+        """
+        if name == 'heis':
+            self._structure_constants_build_from_rules({(0,1) : [(1,2)]})
+        if name == 'so2':
+            self._structure_constants_build_from_rules({(0,1) : [(1,2)]})
+        if name == 'so2':
+            self._structure_constants_build_from_rules({(0,1) : [(1,2)]})
+        if name == 'so2':
+            self._structure_constants_build_from_rules({(0,1) : [(1,2)]})
+        """
+
     def _structure_constants_build_abstract(self,struct_const):
-        """\
-Output: tensor of type (2,1) : G[_a,_b,^c]
-brackets(B_a,B_b) = G[_a,_b,^c] B_c    
+        """
+        Output: tensor of type (2,1) : G[_a,_b,^c]
+        brackets(B_a,B_b) = G[_a,_b,^c] B_c    
         """
         dim = self._dimension
         G = self._structure_constants_symbol = IndexedBase(struct_const, real=True)
@@ -345,6 +464,7 @@ brackets(B_a,B_b) = G[_a,_b,^c] B_c
                         self._structure_constants[a,b,c] = 0
                     if a<b:
                         self._structure_constants[a,b,c] = -self._structure_constants[b,a,c]
+
     def _structure_constants_build_from_rules(self,rules):
         dim = self._dimension
         # put constants to zero:
@@ -355,17 +475,22 @@ brackets(B_a,B_b) = G[_a,_b,^c] B_c
             for a in res:
                 self._structure_constants[r[0],r[1],a[1]] = a[0]
                 self._structure_constants[r[1],r[0],a[1]] = -a[0]
+
     def brackets(self,v,w):
-        """\
-brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j]
         """
-        return tensorcontraction(tensorproduct(self._structure_constants,v,w),(0,3),(1,4))
+        brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j]
+        """
+        structure_constants = self.structure_constants()
+        return tensorcontraction(tensorproduct(structure_constants,v,w),(0,3),(1,4))
+
+    def __call__(self,v,w):
+        return self.brackets(v,w)
+
     def check_jacobi(self):
-        """\
- G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
- but it is easier to check it on symbolic vectors.
         """
-#        G = self.structure_constants()
+        G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
+        but it is easier to check it on symbolic vectors.
+        """
         dim = self._dimension
         xx = IndexedBase('x', real=True)
         yy = IndexedBase('y', real=True)
@@ -379,15 +504,86 @@ brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j]
         except:
             None
         return res
+    
+    def from_symbols_to_array(self,v):
+        basis = self.basis_symbols()
+        v = expand(v)
+        v_coeff_dict = noncomm_pol_dict(v)
+        v_array = Array([v_coeff_dict[b] for b in basis])
+        return v_array
+
+    def from_array_to_symbols(self,v):
+        basis = self.basis_symbols()
+        v_basis = list(zip(list(v),basis)) # [(v1,b1),(v2,b2),...]
+        v_symbol = sum([prod(vb) for vb in v_basis]) # v1*b1 + v2*b2 + ...
+        return v_symbol
+
+    def brackets_symbols(self,v,w):
+        """
+        ....
+        """
+        basis = self.basis_symbols()
+        dim = self.dimension()
+        v = expand(v)
+        v_array = self.from_symbols_to_array(v)
+        w = expand(w)
+        w_array = self.from_symbols_to_array(w)
+        vw_array = self.brackets(v_array,w_array)
+        vw = self.from_array_to_symbols(vw_array)
+        return vw
+
+    def rules_basis_symbols(self):
+        if _rules_basis_symbols == None:
+            rules_basis_symbols_build()
+        return _rules_basis_symbols
+
+    def rules_basis_symbols_set(self,rules):
+        self._rules_basis_symbols = rules
+
+    def rules_basis_symbols_build(self):
+        pass
+
+    def rules_vector_fields(self):
+        if self._rules_vector_fields == None:
+            self.rules_vector_fields_build()
+        return self._rules_vector_fields
+
+    def rules_vector_fields_build(self):
+        """
+        Example in the Heisenberg group:
+        rules[y*x] = x*y - z
+        i.e.,
+        rules = { y*x : x*y - z }
+        """
+        basis = self.basis_symbols()
+        dim = self.dimension()
+        self._rules_vector_fields = {}
+        for i in range(dim):
+            for j in range(i):
+                bi = Array(flatten(eye(dim)[i,:]))
+                bj = Array(flatten(eye(dim)[j,:]))
+                bk = list(self.brackets(bi,bj))
+                res = basis[j]*basis[i]
+                for k in range(dim):
+                    res += bk[k]*basis[k]
+                self._rules_vector_fields[basis[i]*basis[j]] = res
+
     def a_vector(self,v):
+        """
+        Returns a vector of self.
+
+        *v* is a string that is used to define symbols v1,...,vn for the components of the output.
+        The output is an Array.
+        """
         return Array(symbols(v+'[:%d]'%self._dimension))
+
     def _multbra_u(self,r,v,s,w,u):
-        """\
-Compute
-\[
-[v,[v,...,[v,[w,[w,...,[w,u]]]]]]]
-\]
-con r volte v e s volte w
+        """
+        Compute
+        \[
+        [v,[v,...,[v,[w,[w,...,[w,u]]]]]]]
+        \]
+        con r volte v e s volte w
         """
         uu = u
         for i in range(s):
@@ -395,14 +591,15 @@ con r volte v e s volte w
         for j in range(r):
             uu = self.brackets(v,uu)
         return uu
+
     def _multbra(self,r,v,s,w):
-        """\
-Compute
-\[
-[v,[v,...,[v,[w,...[w,[v,...[v,w...
-\]
-r[1] volte v, s[1] volte w, r[2] volte v, s[2] volte w, .... , r[n] volte v, s[n] volte w.
-Attenzioen che gli ultimi sono delicati, perché [w,w]=0, etc...
+        """
+        Compute
+        \[
+        [v,[v,...,[v,[w,...[w,[v,...[v,w...
+        \]
+        r[1] volte v, s[1] volte w, r[2] volte v, s[2] volte w, .... , r[n] volte v, s[n] volte w.
+        Attenzione che gli ultimi sono delicati, perché [w,w]=0, etc...
         """
         n=len(r)
         if n == 0:
@@ -421,11 +618,12 @@ Attenzioen che gli ultimi sono delicati, perché [w,w]=0, etc...
         for i in range(n-1):
             u = self._multbra_u(r[i],v,s[i],w,u)
         return u
+
     def _list_rs(self,n,N):
-        """\
-Output: list of 
-[r1,s1,r2,s2,....,rn,sn]
-with rj+sj>0 and r1+s1+...+rn+sn <= N
+        """
+        Output: list of 
+        [r1,s1,r2,s2,....,rn,sn]
+        with rj+sj>0 and r1+s1+...+rn+sn <= N
         """
         pairs = []
         for r in range(N+1):
@@ -443,16 +641,12 @@ with rj+sj>0 and r1+s1+...+rn+sn <= N
                     if sum(rs + pair) <= N :
                         RS.append(rs+pair)
         return RS
-    def _prod_list(self,ll):
-        p = 1
-        for x in ll:
-            p=p*x
-        return p
+
     def bch_trnc(self,v,w,N):
         """\
-Baker–Campbell–Hausdorff formula
-https://en.wikipedia.org/wiki/Baker–Campbell–Hausdorff_formula
-with sum up to N
+        Baker–Campbell–Hausdorff formula
+        https://en.wikipedia.org/wiki/Baker–Campbell–Hausdorff_formula
+        with sum up to N
         """
         res = 0*v
         for n in range(1,N+1):
@@ -462,52 +656,78 @@ with sum up to N
             for rs in RS:
                 somma = sum(rs)
                 rs_fact = [factorial(x) for x in rs]
-                prodotto = self._prod_list(rs_fact)
+                prodotto = mul_list(rs_fact)
                 r = [rs[2*x] for x in range(n)]
                 s = [rs[2*x+1] for x in range(n)]
                 RS_sum = RS_sum + (somma*prodotto)**(-1) * self._multbra(r,v,s,w)
             res = res + coef * RS_sum
         return res
-    def bch(self,v,w):
-        """\
-Baker–Campbell–Hausdorff formula
-https://en.wikipedia.org/wiki/Baker–Campbell–Hausdorff_formula
-with sum up to the step of self,
-which needs to be nilpotent.
-Otherwise, use bch_trnc(v,w,N) with level of precision N.
-        """
-        if self.is_nilpotent == True and self.step!=None :
-            return self.bch_trnc(v,w,self.step)
-        else:
-            print('Error: This algebra is not nilpotent. Use bch_trnc(v,w,N) with level of precision N.')
-            return None
-    def declare_nilpotent(self,isit=True,step=None):
-        self.is_nilpotent = isit
-        self.step = step
-    def check_nilpotent(self):
-        print('Is nilpotent? ',self.is_nilpotent,' step: ',self.step)
-        return None
-    def declare_graded(self,isit=True,step=None,growth_vector=None):
-        self.is_nilpotent = isit
-        self.is_graded = isit
-        self.step = step
-        self.growth_vector = growth_vector
-    def declare_stratified(self,isit=True,step=None,growth_vector=None):
-        self.is_nilpotent = isit
-        self.is_graded = isit
-        self.is_stratified = isit
-        self.step = step
-        self.growth_vector = growth_vector
-    def set_step(self,step=None):
-        if self.step != None:
-            print("At the moment, the step is ",self.step)
-        if step==None:
-            self.step = int(input("What is the step?"))
-        else:
-            self.step = step
-        print("step set to ",self.step," (You should check that the Lie algebra is nilpotent!)")
 
-    def build_graded_basis_symbols(self):
+    def bch(self,v,w):
+        """
+        Baker–Campbell–Hausdorff formula
+        https://en.wikipedia.org/wiki/Baker–Campbell–Hausdorff_formula
+        with sum up to the step of self,
+        which needs to be nilpotent.
+        Otherwise, use bch_trnc(v,w,N) with level of precision N.
+        """
+        step = self.step()
+        if type(step) == int :
+            return self.bch_trnc(v,w,step)
+        else:
+            print('Error from bch(): This algebra is not nilpotent or self.step is not set. Use bch_trnc(v,w,N) with level of precision N. Use self.declare_nilpotent(step) if you think self is nilpotent.')
+            return None
+
+    def declare_nilpotent(self,step=None,isit=True):
+        self.is_nilpotent = isit
+        self.step_set(step)
+
+    def check_nilpotent(self):
+        print('Is nilpotent? ',self.is_nilpotent,' step: ',self.step())
+        return None
+
+    def declare_graded(self,growth_vector=None,step=None,isit=True):
+        if step == None and growth_vector != None:
+            step = len(growth_vector)
+        self.declare_nilpotent(step,isit)
+        self.is_graded = isit
+        self.growth_vector_set(growth_vector)
+        if growth_vector != None:
+            self.dimension_set(sum(growth_vector))
+
+    def declare_stratified(self,growth_vector=None,step=None,isit=True):
+        self.declare_graded(growth_vector,step,isit)
+        self.is_stratified = isit
+    
+    def step(self):
+        if self._step == None:
+            self.step_set()
+        return self._step
+
+    def step_set(self,step=None):
+        if self._step != None:
+            print("At the moment, the step is ",self.step())
+        if step==None:
+            self._step = int(input("What is the step? "))
+        else:
+            self._step = step
+        #print("step set to ",self.step," (You should check that the Lie algebra is nilpotent!)")
+
+    def growth_vector(self):
+        return self._growth_vector
+
+    def growth_vector_set(self,gr_vect):
+        self._growth_vector = gr_vect
+
+    def graded_basis_symbols(self):
+        if self._graded_basis_symbols == None:
+            self.graded_basis_symbols_build()
+        return self._graded_basis_symbols
+
+    def graded_basis_symbols_set(self,basis):
+        self._graded_basis_symbols = basis
+
+    def graded_basis_symbols_build(self,smbl='b'):
         """
         Per Heisenberg:
         x,y,z = symbols('x y z',commutative=False)
@@ -516,69 +736,35 @@ Otherwise, use bch_trnc(v,w,N) with level of precision N.
         xd,yd,zd = symbols('x^+ y^+ z^+',commutative=False) # dual elements
         self.dual_basis_symbols = [xd,yd,zd]
         """
-        if self.is_graded == None or not self.is_graded:
-            print('Error from build_graded_basis_symbols : The algebra must be graded')
+        if self.is_graded != True :
+            print('Error from graded_basis_symbols_build : The algebra must be graded')
             return None
-        self.graded_basis_symbols = []
-        growth_vector = self.growth_vector
+        self._graded_basis_symbols = []
+        growth_vector = self.growth_vector()
         for j in range(len(growth_vector)):
             base_j_layer = []
             for k in range(growth_vector[j]):
-                base_j_layer.append(symbols('b^'+str(j)+'_'+str(k),commutative=False))
-            self.graded_basis_symbols.append(base_j_layer)
-        self.basis_symbols = flatten(self.graded_basis_symbols)
+                base_j_layer.append(symbols(smbl+'^'+str(j)+'_'+str(k),commutative=False))
+            self._graded_basis_symbols.append(base_j_layer)
+        self._basis_symbols = flatten(self.graded_basis_symbols)
 
-    def build_dual_basis_symbols(self,pre_symbol_for_dual='@',post_symbol_for_dual=''):
-        if self.basis_symbols == None:
-            print('Error from build_dual_basis_symbols: first you need to basis_symbols')
-            return None
-        self.dual_basis_symbols = [ \
-                symbols(pre_symbol_for_dual + b_vect.name + post_symbol_for_dual,commutative=False) \
-                for b_vect in self.basis_symbols ]
-    def build_basis_tensors(self,order):
-        """
-        Build the list basi = self.basis_tensors_symbols, 
-        where basi[k] is the basis of tensors of order k,
-        for k from 0 to 'order':
-        basi[0] = [1]
-        basi[1] = self.basis_symbols
-        basi[2] = [a*b for a in basi[1] for b in basi[1]]
-        etc...
-        basi[order] = ...
-        Notice that len(basi) = order + 1 
-        """
-        if order >= 0:
-            self.basis_tensors_symbols = [[1]]
-        if order >= 1:
-            self.basis_tensors_symbols += [self.basis_symbols]
-        if order > 1:
-            for j in range(order-1):
-                self.basis_tensors_symbols = [ \
-                        a*b for a in self.basis_tensors_symbols[-1] for b in self.basis_symbols \
-                        ]
-    def build_rules_vector_fields(self):
-        """
-        Example in the Heisenberg group:
-        rules[y*x] = x*y - z
-        i.e.,
-        rules = { y*x : x*y - z }
-        """
-        if self.basis_symbols == None:
-            print('Error: first you need to build basis_symbols')
-            return None
-        basis = self.basis_symbols
-        dim = self.dimension
-        self.rules_vector_fields = {}
-        for i in range(self.dimension):
-            for j in range(i):
-                bi = Array(flatten(eye(dim)[i,:]))
-                bj = Array(flatten(eye(dim)[j,:]))
-                bk = list(self.brackets(bi,bj))
-                res = basis[j]*basis[i]
-                for k in range(dim):
-                    res += bk[k]*basis[k]
-                self.rules_vector_fields[basis[i]*basis[j]] = res
+    def dual_basis_symbols(self):
+        if self._dual_basis_symbols == None:
+            self.dual_basis_symbols_build()
+        return self._dual_basis_symbols
+
+    def dual_basis_symbols_build(self,pre_symbol_for_dual='@',post_symbol_for_dual=''):
+        basis = self.basis_symbols()
+        self._dual_basis_symbols = [ \
+                symbols(pre_symbol_for_dual + vect.name + post_symbol_for_dual,commutative=False) \
+                for vect in basis ]
+
     def basis_HD(self,order):
+        if self._basis_HD.get(order,None) == None :
+            self.basis_HD_build(order)
+        return self._basis_HD[order]
+
+    def basis_HD_build(self,order):
         """
         Computes a basis $(A_I)_{I\in \scr I^a}$ of $HD^a(\mathfrak g;\R)$, for $a$ equal to *order*.
 
@@ -629,12 +815,12 @@ Otherwise, use bch_trnc(v,w,N) with level of precision N.
          (2, 0, 0): @b^0_0#**2}
 
         """
-        basis = self.basis_symbols
-        dual_basis = self.dual_basis_symbols
-        basis_V1 = self.graded_basis_symbols[0]
-        rules = self.rules_vector_fields
+        basis = self.basis_symbols()
+        dual_basis = self.dual_basis_symbols()
+        basis_V1 = self.graded_basis_symbols()[0]
+        rules = self.rules_vector_fields()
         basis_T_a_V1 = build_monomials_nc(basis_V1,order)[order]
-        indeces_a_hom = build_graded_indeces_dict(self.growth_vector,order)[order]
+        indeces_a_hom = build_graded_indeces_dict(self.growth_vector(),order)[order]
         basis_HD_a = {}
         for idx in indeces_a_hom:
             A = 0
@@ -644,7 +830,7 @@ Otherwise, use bch_trnc(v,w,N) with level of precision N.
                 tau_bb_I = tau_bb.get(mon,0)
                 A += tau_bb_I * dualize(reverse_order(xi),basis,dual_basis)
             basis_HD_a[idx] = A
-        return basis_HD_a
+        self._basis_HD[order] = basis_HD_a
 
 
 
