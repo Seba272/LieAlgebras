@@ -360,7 +360,9 @@ class LieAlgebra:
     _growth_vector = None
     _graded_basis_symbols = None
     _basis_HD = {}
-    _a_basis_of_brackets = None
+    _a_basis_of_brackets_ = None
+    _a_basis_of_brackets_graded_ = None
+    _a_basis_of_brackets_matrix_ = None
 #    def __init__(self,dim,struct_const='Gamma'):
 #        self._dimension = dim
 #        self.structure_constants_build(struct_const)
@@ -833,20 +835,38 @@ class LieAlgebra:
             basis_HD_a[idx] = A
         self._basis_HD[order] = basis_HD_a
 
-    def _a_basis_of_brackets_(self):
+    def a_basis_of_brackets_graded(self):
         """
+        Returns three data for extending Lie algebra morphisms from the first layer to the whole Lie algebra.
+
         Returns a basis in coordinates for *self* out of the set of all brackets of vectors of the first strata.
         And a dictionary to see for each vector who are his parents.
+        And a matrix whose j-th colomun are the coeffiecients of ej in the basis given above.
 
-        Works only for stratified Lie algebras.
+        Works only for stratified Lie algebras!
         """
         if not self.is_stratified:
-            print('Error from _a_basis_of_brackets_: self must be stratified. Method cannot work.')
-        if self._a_basis_of_brackets = None:
-            _a_basis_of_brackets_build()
-        return self._a_basis_of_brackets, self._a_basis_of_brackets_dict
+            print('Error 61137d91: self must be stratified. Method cannot work.')
+        if not self._a_basis_of_brackets_graded_:
+            self._a_basis_of_brackets_build()
+        if not self._a_basis_of_brackets_matrix_:
+            self._a_basis_of_brackets_matrix_build()
+        return self._a_basis_of_brackets_graded_ , self._a_basis_of_brackets_dict_ , self._a_basis_of_brackets_matrix_
+
+#    def _a_basis_of_brackets_(self):
+#        """
+#        Returns a basis in coordinates for *self* out of the set of all brackets of vectors of the first strata.
+#        And a dictionary to see for each vector who are his parents.
+#
+#        Works only for stratified Lie algebras.
+#        """
+#        if not self.is_stratified:
+#            print('Error from _a_basis_of_brackets_: self must be stratified. Method cannot work.')
+#        if self._a_basis_of_brackets = None:
+#            _a_basis_of_brackets_build()
+#        return self._a_basis_of_brackets, self._a_basis_of_brackets_dict
     
-    def _a_basis_of_brackets_build_(self):
+    def _a_basis_of_brackets_build(self):
         """
         Builds ``self._a_basis_of_brackets``, that is, a basis in coordinates for *self* out of the set of all brackets.
 
@@ -873,28 +893,55 @@ class LieAlgebra:
                         basis_decoupling[bb] = VV[:2]
                         continue
             new_len = len(flatten(basis))
-        self._a_basis_of_brackets = flatten(basis)
-        self._a_basis_of_brackets_dict = basis_decoupling
+        self._a_basis_of_brackets_graded_ = basis
+        self._a_basis_of_brackets_ = flatten(basis)
+        self._a_basis_of_brackets_dict_ = basis_decoupling
 
-    def _a_basis_of_brackets_matrix_(self):
+    def _a_basis_of_brackets_matrix(self):
         """
         Returns a matrix M whose colomuns are the coordinates of the standard basis in the new basis.
         """
-        if self._a_basis_of_brackets_matrix == None:
+        if self._a_basis_of_brackets_matrix_ == None:
             self._a_basis_of_brackets_matrix_build()
-        return self._a_basis_of_brackets_matrix
+        return self._a_basis_of_brackets_matrix_
 
-    def _a_basis_of_brackets_matrix_build_(self):
-        basis = self._a_basis_of_brackets_()
-        self._a_basis_of_brackets_matrix = Matrix(basis).transpose().inv()
+    def _a_basis_of_brackets_matrix_build(self):
+        basis = self._a_basis_of_brackets_graded()[0]
+        self._a_basis_of_brackets_matrix_ = Matrix(basis).transpose().inv()
+
 
 class LinearMap():
     _lie_algebra_domain = None
+    _lie_algebra_range = None
     _map_dict = None
+    _map_list = None # a list; entry j is L(e_j)
+
+    def __call__(self,x):
+        x = list(x)
+        L = self.map_list()
+        y_list = zip(L,x)
+        y_prod = [ yy[0]*yy[1] for yy in y_list ]
+        y = sum(y_prod)
+        return y
+
+    def map_list(self):
+        if self._map_list == None:
+            print('Map_list not defined yet!')
+        return self._map_list
+
+    def map_list_build(self):
+        mdict = self.map_dict()
+        dimension = self.lie_algebra_domain().dimension()
+        std_basis = eye(dimension).columnspace()
+        std_basis = [ list(ec) for ec in std_basis ]
+        mlist = [ mdict.get(ec,None) for ec in std_basis ]
+        if None in set(mlist):
+            print('Error 61136c45: map_dict does not contain infos for all elements of the standard basis!'  
+        return mlist
 
     def map_dict(self):
         if self._map_dict == None:
-            print('Errore from map_dict: the map is not defined.')
+            print('Error 611374fd: the map is not defined. Use self.map_dict_set() or self.extend_from_V1().')
         return self._map_dict
 
     def map_dict_set(self,md):
@@ -906,22 +953,47 @@ class LinearMap():
     def lie_algebra_domain_set(self,lie_alg):
         self._lie_algebra_domain = lie_alg
     
+    def lie_algebra_range(self):
+        return self._lie_algebra_range
+
+    def lie_algebra_range_set(self,lie_alg):
+        self._lie_algebra_range = lie_alg
+    
     def extend_from_V1(self,diz_V1):
-        lie_alg = self.lie_algebra_domain()
-        if not lie_alg.is_stratified:
-            print('Error from extend_from_V1() : The Lie algebra must be stratified. Method breaks down.')
+        la_dom = self.lie_algebra_domain()
+        la_ran = self.lie_algebra_range()
+        if not la_dom.is_stratified:
+            print('Error 61136ccf: The Lie algebra of the domain must be stratified. Method breaks down.')
             return
-        dimension = lie_alg.dimension()
-        dimension_1 = lie_alg.growth_vector()[0]
-        basis_std = eye(dimension).columnspace()
-        basis_1 = basis_std[:dimension_1]
-        bas_bra , bas_bra_dict = lie_alg._a_basis_of_brackets_()
-        bas_bra_matr = lie_alg._a_basis_of_brackets_matrix_()
-        map_dict = diz_V1
+        dim = la_dom.dimension()
+        dim1 = la_dom.growth_vector()[0]
+        basis_std = eye(dim).columnspace()
+        #std_basis = [ list(ec) for ec in std_basis ] # I don't know if this line is necessary
+        basis1 = basis_std[:dim1]
+        bas_bra , bas_bra_dict , bas_bra_matr = la_dom._a_basis_of_brackets_graded()
+        # See https://stackoverflow.com/questions/38987/how-do-i-merge-two-dictionaries-in-a-single-expression-taking-union-of-dictiona
+        # The second dictionary prevails. Thus, this function can change the map.
+        m_dict = self.map_dict() | diz_V1 
+        # bas_bra is a list
+        # basj is a list, a basis of a layer j
+        # b is a vector or list of dim numbers
+        # bas_bra_dict[b] is a pair of vectors v,w, one in layer 1 and the other in layer j-1, so that brakets(v,w) = b
+        for basj in bas_bra:
+            for b in basj:
+                v , w = bas_bra_dict[b]
+                m_dict[b] = la_ran(m_dict[v],m_dict[w]) # la_ran.__call__ is the lie brackets in the taget lie-algebra.
+        # Now m_dict is a large dictionary containing all informations we have at the moment about the map.
+        # We want not to say what is the map applied to the standard basis of lie_dom
+        bas_bra_flat = flatten(bas_bra)
         for j in range(dimension_1,dimension):
-            ej = Matrix(basis_std[j])
+            ej = basis_std[j]
             mj = bas_bra_matr.col(j)
-# NOT COMPLETE!
+            c_b = zip(mj,bas_bra_flat)
+            y = [ c*m_dict[b] for [c,b] in c_b ]
+            y = sum(y)
+            m_dict[ej] = y
+        self.map_dict_set(m_dict)
+
 
 
 
