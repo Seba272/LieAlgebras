@@ -910,8 +910,9 @@ class LieAlgebra:
         self._a_basis_of_brackets_matrix_ = Matrix(basis).transpose().inv()
 
 
-class LinearMap():
+class LieAlgebra_Morphism:
     _lie_algebra_domain = None
+    _std_basis_domain = None
     _lie_algebra_range = None
     _map_dict = None
     _map_list = None # a list; entry j is L(e_j)
@@ -924,6 +925,22 @@ class LinearMap():
         y = sum(y_prod)
         return y
 
+    def std_basis_domain(self):
+        """
+        Returns the standard basis of the domain.
+
+        Returns a list [e1,...,en] where n is the dimension of the domain and ej is a list of zeros with a 1 at the j-th place (counting from 1).
+
+        """
+        if self._std_basis_domain == None:
+            self.std_basis_domain_build()
+        return self._std_basis_domain
+
+    def std_basis_domain_build():
+        dimension = self.lie_algebra_domain()
+        std_basis = eye(dimension).columnspace()
+        std_basis = [ list(ec) for ec in std_basis ]
+
     def map_list(self):
         if self._map_list == None:
             print('Map_list not defined yet!')
@@ -932,8 +949,7 @@ class LinearMap():
     def map_list_build(self):
         mdict = self.map_dict()
         dimension = self.lie_algebra_domain().dimension()
-        std_basis = eye(dimension).columnspace()
-        std_basis = [ list(ec) for ec in std_basis ]
+        std_basis = self.std_basis_domain()
         mlist = [ mdict.get(ec,None) for ec in std_basis ]
         if None in set(mlist):
             print('Error 61136c45: map_dict does not contain infos for all elements of the standard basis!'  
@@ -967,8 +983,7 @@ class LinearMap():
             return
         dim = la_dom.dimension()
         dim1 = la_dom.growth_vector()[0]
-        basis_std = eye(dim).columnspace()
-        #std_basis = [ list(ec) for ec in std_basis ] # I don't know if this line is necessary
+        basis_std = std_basis_domain()
         basis1 = basis_std[:dim1]
         bas_bra , bas_bra_dict , bas_bra_matr = la_dom._a_basis_of_brackets_graded()
         # See https://stackoverflow.com/questions/38987/how-do-i-merge-two-dictionaries-in-a-single-expression-taking-union-of-dictiona
@@ -993,6 +1008,36 @@ class LinearMap():
             y = sum(y)
             m_dict[ej] = y
         self.map_dict_set(m_dict)
+
+    def check(self):
+        """
+        Checks that everything is alright.
+
+        Checks that:
+        *) The map is defined on the whole domain (i.e., on the standard basis)
+        *) The map is a Lie algebra morphism (i.e., the graph is closed under Lie brackets)
+        """
+        map_list = self.map_list() # Check is inside the method.
+        la_dom = self.lie_algebra_domain()
+        la_ran = self.lie_algebra_range()
+        basis_std = std_basis_domain()
+        dim = la_dom.dimension()
+        pairs = [ (basis_std[i],basis_std[j]) : for i in range(j) for j in range(dim)]
+        for (b1,b2) in pairs:
+            test = simplify( self(la_dom(b1,b2)) - la_range(self(b1),self(b2)) )
+            if test != 0:
+                print('The map is not a morphism: ')
+                print('b1 = ',b1)
+                print('b2 = ',b2)
+                print('self(la_dom(b1,b2)) = ', simplify(self(la_dom(b1,b2))) )
+                print('la_range(self(b1),self(b2)) = ', simplify(la_range(self(b1),self(b2))) )
+                break
+        if map_list == None or test !=0:
+            return False
+        else:
+            return True
+
+
 
 
 
@@ -1306,4 +1351,5 @@ xxx = ricdiff([0,1,0,0],[0,0,0,1])
 len(str(xxx))
     """
     print(testo)
+
 
