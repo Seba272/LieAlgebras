@@ -1,6 +1,11 @@
 from sympy import *
 import time as time
 
+#TODO:
+#    - class Tensor_algebra with:
+#        - abstract basis, dual basis, contractions.
+#    - class jet with
+
 # For docstring, I use this formatting:
 # https://docs.sympy.org/latest/documentation-style-guide.html
 
@@ -346,8 +351,12 @@ def maximal_lin_ind(vectors):
 
 
 class LieAlgebra:
+    name = 'LieAlgebra'
     _dimension = None
     _basis_symbols = None
+    _std_basis = None
+    _an_outside_basis = None
+    _use_outside_brackets = False
     _structure_constants = None
     _rules_structure_constants = None
     _rules_basis_symbols = None
@@ -366,6 +375,20 @@ class LieAlgebra:
 #    def __init__(self,dim,struct_const='Gamma'):
 #        self._dimension = dim
 #        self.structure_constants_build(struct_const)
+
+    def __call__(self,v,w):
+        return self.brackets(v,w)
+
+    def brackets(self,v,w):
+        if self._use_outside_brackets:
+            return self.brackets_outside(v,w)
+        typev = type(v)
+        if typev == list or typev == Array:
+            return self.brackets_strct_consts(v,w)
+        if typev == Matrix:
+            return v*w - w*v
+        print('Error 61150e34 : There is no brackets that match it.')
+        return None
     
     def dimension(self):
         """
@@ -401,6 +424,60 @@ class LieAlgebra:
 
     def basis_symbols_set(self,basis):
         self._basis_symbols = basis
+
+    def std_basis(self):
+        """
+        Returns the standard basis of self.
+
+        Returns a list [e1,...,en] where n is the dimension of the domain and ej is a list of zeros with a 1 at the j-th place (counting from 1).
+
+        """
+        if self._std_basis == None:
+            self.std_basis_build()
+        return self._std_basis
+
+    def std_basis_build(self):
+        dim = self.dimension()
+        std_basis = eye(dim).columnspace()
+        std_basis = [ list(ec) for ec in std_basis ]
+        self._std_basis = std_basis
+
+    def an_outside_basis(self):
+        """
+        Returns a basis chosen by the user.
+
+        In some cases, the standard basis corresponds to objects defined by the user, for instance matrices.
+        
+        """
+        if self._an_outside_basis == None:
+            print('There is no objective basis.')
+        return self._an_outside_basis
+
+    def an_outside_basis_set(self,basis):
+        self._an_outside_basis = basis
+
+    def brackets_outside(self,v,w):
+        """
+        Sometimes, we have brackets defined by the user on the elements from the outside basis.
+    
+        """
+        pass
+
+    def use_outside_brackets(self,doit=True):
+        """
+        Sets to use by default the brackets defined by the user.
+
+        Example:
+        ========
+        >>> self.use_outside_brackets()
+        We use the the outside brackets.
+        >>> self.use_outside_brackets(False)
+        We now go back to normal.
+
+        (In fact, there is no output or printing).
+
+        """
+        self._use_outside_brackets = doit
 
     def structure_constants(self):
         """
@@ -479,15 +556,12 @@ class LieAlgebra:
                 self._structure_constants[r[0],r[1],a[1]] = a[0]
                 self._structure_constants[r[1],r[0],a[1]] = -a[0]
 
-    def brackets(self,v,w):
+    def brackets_strct_consts(self,v,w):
         """
-        brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j]
+        brackets(v,w)[^k] = Gamma[_i,_j,^k]v[^i]w[^j] using structure constants.
         """
         structure_constants = self.structure_constants()
         return tensorcontraction(tensorproduct(structure_constants,v,w),(0,3),(1,4))
-
-    def __call__(self,v,w):
-        return self.brackets(v,w)
 
     def check_jacobi(self):
         """
@@ -918,6 +992,13 @@ class LieAlgebra_Morphism:
     _map_list = None # a list; entry j is L(e_j)
 
     def __call__(self,x):
+        """
+        Apply the morphism self to x.
+
+        *x* is suppose to be a list. Anyway, ``list(x)`` is performed.
+        The output is also a list.
+
+        """
         x = list(x)
         L = self.map_list()
         y_list = zip(L,x)
@@ -937,9 +1018,10 @@ class LieAlgebra_Morphism:
         return self._std_basis_domain
 
     def std_basis_domain_build():
-        dimension = self.lie_algebra_domain()
-        std_basis = eye(dimension).columnspace()
+        dim = self.lie_algebra_domain().dimension()
+        std_basis = eye(dim).columnspace()
         std_basis = [ list(ec) for ec in std_basis ]
+        self._std_basis_domain = std_basis 
 
     def map_list(self):
         if self._map_list == None:
@@ -952,7 +1034,7 @@ class LieAlgebra_Morphism:
         std_basis = self.std_basis_domain()
         mlist = [ mdict.get(ec,None) for ec in std_basis ]
         if None in set(mlist):
-            print('Error 61136c45: map_dict does not contain infos for all elements of the standard basis!'  
+            print('Error 61136c45: map_dict does not contain infos for all elements of the standard basis!'  )
         return mlist
 
     def map_dict(self):
@@ -1014,8 +1096,9 @@ class LieAlgebra_Morphism:
         Checks that everything is alright.
 
         Checks that:
-        *) The map is defined on the whole domain (i.e., on the standard basis)
-        *) The map is a Lie algebra morphism (i.e., the graph is closed under Lie brackets)
+        * The map is defined on the whole domain (i.e., on the standard basis)
+        * The map is a Lie algebra morphism (i.e., the graph is closed under Lie brackets)
+
         """
         map_list = self.map_list() # Check is inside the method.
         la_dom = self.lie_algebra_domain()
