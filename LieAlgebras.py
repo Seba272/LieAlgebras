@@ -1121,6 +1121,141 @@ class LieAlgebra_Morphism:
             return True
 
 
+class LieAlgebra_Derivation:
+    _lie_algebra_domain = None
+    _std_basis_domain = None
+    _lie_algebra_range = None
+    _map_dict = None
+    _map_list = None # a list; entry j is L(e_j)
+
+    def __call__(self,x):
+        """
+        Apply the derivation self to x.
+
+        *x* is suppose to be a list. Anyway, ``list(x)`` is performed.
+        The output is also a list.
+
+        """
+        x = list(x)
+        L = self.map_list()
+        y_list = zip(L,x)
+        y_prod = [ yy[0]*yy[1] for yy in y_list ]
+        y = sum(y_prod)
+        return y
+
+    def std_basis_domain(self):
+        """
+        Returns the standard basis of the domain.
+
+        Returns a list [e1,...,en] where n is the dimension of the domain and ej is a list of zeros with a 1 at the j-th place (counting from 1).
+
+        """
+        if self._std_basis_domain == None:
+            self.std_basis_domain_build()
+        return self._std_basis_domain
+
+    def std_basis_domain_build():
+        dim = self.lie_algebra_domain().dimension()
+        std_basis = eye(dim).columnspace()
+        std_basis = [ list(ec) for ec in std_basis ]
+        self._std_basis_domain = std_basis 
+
+    def map_list(self):
+        if self._map_list == None:
+            print('Map_list not defined yet!')
+        return self._map_list
+
+    def map_list_build(self):
+        mdict = self.map_dict()
+        dimension = self.lie_algebra_domain().dimension()
+        std_basis = self.std_basis_domain()
+        mlist = [ mdict.get(ec,None) for ec in std_basis ]
+        if None in set(mlist):
+            print('Error 61136c45: map_dict does not contain infos for all elements of the standard basis!'  )
+        return mlist
+
+    def map_dict(self):
+        if self._map_dict == None:
+            print('Error 611374fd: the map is not defined. Use self.map_dict_set() or self.extend_from_V1().')
+        return self._map_dict
+
+    def map_dict_set(self,md):
+        self._map_dict = md
+
+    def lie_algebra_domain(self):
+        return self._lie_algebra_domain
+
+    def lie_algebra_domain_set(self,lie_alg):
+        self._lie_algebra_domain = lie_alg
+    
+    def lie_algebra_range(self):
+        return self._lie_algebra_range
+
+    def lie_algebra_range_set(self,lie_alg):
+        self._lie_algebra_range = lie_alg
+    
+    def extend_from_V1(self,diz_V1):
+        la_dom = self.lie_algebra_domain()
+        la_ran = self.lie_algebra_range()
+        if not la_dom.is_stratified:
+            print('Error 61136ccf: The Lie algebra of the domain must be stratified. Method breaks down.')
+            return
+        dim = la_dom.dimension()
+        dim1 = la_dom.growth_vector()[0]
+        basis_std = std_basis_domain()
+        basis1 = basis_std[:dim1]
+        bas_bra , bas_bra_dict , bas_bra_matr = la_dom._a_basis_of_brackets_graded()
+        # See https://stackoverflow.com/questions/38987/how-do-i-merge-two-dictionaries-in-a-single-expression-taking-union-of-dictiona
+        # The second dictionary prevails. Thus, this function can change the map.
+        m_dict = self.map_dict() | diz_V1 
+        # bas_bra is a list
+        # basj is a list, a basis of a layer j
+        # b is a vector or list of dim numbers
+        # bas_bra_dict[b] is a pair of vectors v,w, one in layer 1 and the other in layer j-1, so that brakets(v,w) = b
+        for basj in bas_bra:
+            for b in basj:
+                v , w = bas_bra_dict[b]
+                m_dict[b] = la_ran(m_dict[v],w) + la_ran(v,m_dict[w]) # la_ran.__call__ is the lie brackets in the taget lie-algebra.
+        # Now m_dict is a large dictionary containing all informations we have at the moment about the map.
+        # We want not to say what is the map applied to the standard basis of lie_dom
+        bas_bra_flat = flatten(bas_bra)
+        for j in range(dimension_1,dimension):
+            ej = basis_std[j]
+            mj = bas_bra_matr.col(j)
+            c_b = zip(mj,bas_bra_flat)
+            y = [ c*m_dict[b] for [c,b] in c_b ]
+            y = sum(y)
+            m_dict[ej] = y
+        self.map_dict_set(m_dict)
+
+    def check(self):
+        """
+        Checks that everything is alright.
+
+        Checks that:
+        * The map is defined on the whole domain (i.e., on the standard basis)
+        * The map is a Lie algebra derivation
+
+        """
+        map_list = self.map_list() # Check is inside the method.
+        la_dom = self.lie_algebra_domain()
+        la_ran = self.lie_algebra_range()
+        basis_std = std_basis_domain()
+        dim = la_dom.dimension()
+        pairs = [ (basis_std[i],basis_std[j]) : for i in range(j) for j in range(dim)]
+        for (b1,b2) in pairs:
+            test = simplify( self(la_dom(b1,b2)) - la_range(self(b1),b2) - la_range(b1,self(b2)) )
+            if test != 0:
+                print('The map is not a morphism: ')
+                print('b1 = ',b1)
+                print('b2 = ',b2)
+                print('self(la_dom(b1,b2)) = ', simplify(self(la_dom(b1,b2))) )
+                print(' la_range(self(b1),b2) + la_range(b1,self(b2)) = ', simplify(  la_range(self(b1),b2) + la_range(b1,self(b2)) ) )
+                break
+        if map_list == None or test !=0:
+            return False
+        else:
+            return True
 
 
 
