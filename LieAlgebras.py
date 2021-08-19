@@ -5,6 +5,7 @@ import time as time
 #    - class Tensor_algebra with:
 #        - abstract basis, dual basis, contractions.
 #    - class jet with
+# MAYBE: I can use the class tensors... : from sympy.physics.quantum import *
 
 # For docstring, I use this formatting:
 # https://docs.sympy.org/latest/documentation-style-guide.html
@@ -340,10 +341,253 @@ def maximal_lin_ind(vectors):
             break
     return vect_li
 
+class NC_Algebra:
+    name = 'NC_Algebra'
+    _generators_symbols = None
+    _num_generators = None
+
+    def generators_symbols(self):
+        if self._generators_symbols == None:
+            print('Error 611d0a55 : Generators to be set yet.')
+        return self._generators_symbols
+    
+    def generators_symbols_set(self,gens):
+        self._generators_symbols = gens
+
+    def build_monomials_nc(variables,order):
+            """
+            Build a list of lists of non commutative monomials.
+    
+            Inputs:
+            -------
+            *variables*: list of (non commutative) variables
+            *order*: maximal order we are interested in
+    
+            Output:
+            -------
+            a list ``monomials``, where ``monomials[k]`` is the list of all monomials of order ``k``, for ``k`` from 0 to *order*.
+            Notice that ``len(monomials) = order + 1``.
+    
+            Examples
+            ========
+    
+            >>> x,y,z = symbols('x y z',commutative=False)
+            >>> monomials = build_monomials_nc([x,y,z],2)
+            >>> monomials[0]
+            [1]
+            >>> monomials[1]
+            [x,y]
+            >>> monomials[2]
+            [x**2,x*y,y*x,y**2]
+            >>> len(monomials)
+            3
+    
+            """
+            monomials = []
+            if order >= 0:
+                monomials = [[1]]
+            if order >= 1:
+                monomials += [variables]
+            if order > 1:
+                for j in range(order-1):
+                    monomials += [[ a*b for a in monomials[-1] for b in variables ]]
+            return monomials
+    
+    def isubs(expr,rules,MAX=100): 
+        """
+        Iterated Symbolic Substitions.
+    
+        Applies *rules* to *expr* iteratively until *expr* does not change anymore,
+        or *MAX* iterations are done.
+        The output consists of a pair: the simplified expression and the number of iterations performed.
+        If the number of iteration is equal to *MAX*, it means that the simplification was not complete.
+        Otherwise, the number of iterations is between 1 and *MAX*-1.
+    
+        NB! ``.subs(rules)`` applies rules only once. This is why we need an iterated version.
+    
+        NB! Every time rules are applied, the expression is also expanded.
+        
+        Examples
+        ========
+    
+        (These examples need to be re-run)
+    
+        >>> x,y,z = symbols('x y z',commutative=False)
+        >>> rules = {y*x: x*y - z, z*x: x*z, z*y: y*z}
+        >>> isubs(y*x,rules)
+        (x*y - z, 2)
+        >>> isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,100)
+        (-13*x**12*z + x**13*y, 14)
+        >>> isubs(y*x*x*x*x*x*x*x*x*x*x*x*x*x,rules,5)
+        max iter reached!
+        (-5*x**4*z*x**8 + x**5*y*x**8, 5)
+    
+        """
+        expr_simplified = expand(expr)
+        iterazione = 0
+        while iterazione < MAX:
+            iterazione+=1
+            new_expr_simplified = expand(expr_simplified.subs(rules))
+            if new_expr_simplified == expr_simplified :
+                return new_expr_simplified, iterazione
+            else:
+                expr_simplified = new_expr_simplified
+        print('Warning from isubs(): Max iterations reached!')
+        return expr_simplified, iterazione
+    
+    def isubs_force(expr,rules,MAX=100): 
+        return isubs(expr,rules,MAX)[0]
+    
+    # questo lo possiamo fare usando ism
+    def dualize(expr,base_from,base_to):
+        dimension = len(base_from)
+        for j in range(dimension):
+            expr = expr.subs(base_from[j],base_to[j])
+        return expr
+    
+    
+
+
+class Tensor_algebra:
+    name = 'LieAlgebra'
+    _dimension = None
+    _basis_symbols = None
+    _std_basis = None
+    _an_outside_basis = None
+    _dual_basis_symbols = None
+    _dualize_dict = None
+
+    def dimension(self):
+        """
+        Returns the dimension of self.
+        If it is not set yet, it asks for it.
+        """
+        if self._dimension == None:
+            ans = input('Dimension of self not declared yet: do you want to set it now? (Y/n)')
+            if ans[0] == 'y' or ans[0] == 'Y':
+                dim = int(input('Dimension = '))
+                self.dimension_set(dim)
+        return self._dimension
+
+    def dimension_set(self,dim):
+        self._dimension = dim
+
+    def dimension_get(self):
+        return self._dimension
+
+    def basis_symbols(self):
+        if self._basis_symbols == None:
+            self.basis_symbols_build()
+        return self._basis_symbols
+    
+    def basis_symbols_build(self,smbl='b'):
+        if self.is_graded :
+            if self._graded_basis_symbols == None:
+                self.graded_basis_symbols_build(smbl)
+            self._basis_symbols = flatten(self.graded_basis_symbols())
+        else:
+            dim = self.dimension()
+            self._basis_symbols = [symbols(smbl+'_'+str(j) for j in range(dim))]
+
+    def basis_symbols_set(self,basis):
+        self._basis_symbols = basis
+
+    def std_basis(self):
+        """
+        Returns the standard basis of self.
+
+        Returns a list [e1,...,en] where n is the dimension of the domain and ej is a list of zeros with a 1 at the j-th place (counting from 1).
+
+        """
+        if self._std_basis == None:
+            self.std_basis_build()
+        return self._std_basis
+
+    def std_basis_build(self):
+        dim = self.dimension()
+        std_basis = eye(dim).columnspace()
+        std_basis = [ list(ec) for ec in std_basis ]
+        self._std_basis = std_basis
+
+    def an_outside_basis(self):
+        """
+        Returns a basis chosen by the user.
+
+        In some cases, the standard basis corresponds to objects defined by the user, for instance matrices.
+        
+        """
+        if self._an_outside_basis == None:
+            print('There is no objective basis.')
+        return self._an_outside_basis
+
+    def an_outside_basis_set(self,basis):
+        self._an_outside_basis = basis
+    def from_symbols_to_array(self,v):
+        basis = self.basis_symbols()
+        v = expand(v)
+        v_coeff_dict = noncomm_pol_dict(v)
+        v_array = Array([v_coeff_dict[b] for b in basis])
+        return v_array
+
+    def from_array_to_symbols(self,v):
+        basis = self.basis_symbols()
+        v_basis = list(zip(list(v),basis)) # [(v1,b1),(v2,b2),...]
+        v_symbol = sum([prod(vb) for vb in v_basis]) # v1*b1 + v2*b2 + ...
+        return v_symbol
+    def dual_basis_symbols(self):
+        if self._dual_basis_symbols == None:
+            self.dual_basis_symbols_build()
+        return self._dual_basis_symbols
+
+    def dual_basis_symbols_build(self,pre_symbol_for_dual='@',post_symbol_for_dual=''):
+        basis = self.basis_symbols()
+        self._dual_basis_symbols = [ \
+                symbols(pre_symbol_for_dual + vect.name + post_symbol_for_dual,commutative=False) \
+                for vect in basis ]
+
+    def dualize_dict(self):
+        """
+        returns a dictionary D so that D[b] = b^* for every element of the basis and the dual basis.
+        """
+        if self._dualize_dict == None:
+            self.dualize_dict_build()
+        return self._dualize_dict 
+    
+    def dualize_dict_build(self):
+        diz = {}
+        basis = self.basis_symbols()
+        dual_basis = self.dual_basis_symbols()
+        for idx in range(self.dimension()):
+            diz[basis[idx]] = dual_basis[idx]
+            diz[dual_basis[idx]] = basis[idx]
+        self._dualize_dict = diz
+        
+    def dualize(self,p):
+        """
+        Returns the dual of *p*
+        """
+        p_dict = noncomm_pol_dict(v)
+        
+        monomials = list(v_dict.keys())
+
+
+    def contraction_right(self,v,p):
+        """
+        Computes the right contraction of *p* by *v*.
+        """
+        pol_dict = noncomm_pol_dict(p)
+        monomials = list(pol_dict.keys())
+        v_dict = noncomm_pol_dict(v)
+        for mon in monomials:
+            right = mon.as_coeff_mul()[1][-1]
+            right_inbasis_idx = self.basis_symbols().index(right)
+            right_dual = self.dual_basis_symbols()[right_inbasis_idx]
+            res += pol_dict(mon) * v_dict.get(right_dual,0) * mul_list(mon_tupl[:-1])
 
 
 
 
+    
 
 
 
@@ -985,6 +1229,7 @@ class LieAlgebra:
 
 
 class LieAlgebra_Morphism:
+    name = 'LieAlgebra_Morphism'
     _lie_algebra_domain = None
     _std_basis_domain = None
     _lie_algebra_range = None
@@ -1122,6 +1367,7 @@ class LieAlgebra_Morphism:
 
 
 class LieAlgebra_Derivation:
+    name = 'LieAlgebra_Derivation'
     _lie_algebra_domain = None
     _std_basis_domain = None
     _lie_algebra_range = None
@@ -1258,6 +1504,25 @@ class LieAlgebra_Derivation:
             return True
 
 
+
+class Jet_Algebra(LieAlgebra):
+    name = 'Jet_Algebra'
+    _lie_algebra_domain = None
+    _target_vector_space = None
+    _order = None
+
+    def lie_algebra_domain(self):
+        return self._lie_algebra_domain
+
+    def lie_algebra_domain_set(self,lie_alg):
+        self._lie_algebra_domain = lie_alg
+    
+    def target_vector_space(self):
+        return self._target_vector_space
+
+    def target_vector_space_set(self,vector_space):
+        self._target_vector_space = vector_space
+    
 
 
 
