@@ -187,19 +187,21 @@ def build_graded_indeces_dict(growth_vector, depth):
     ========
 
     >>> build_graded_indeces_dict([2,1], 3)
-    {1: [(1, 0, 0), (0, 1, 0)],
+    {0: [(0, 0, 0)],
+     1: [(1, 0, 0), (0, 1, 0)],
      2: [(0, 2, 0), (1, 1, 0), (0, 0, 1), (2, 0, 0)],
      3: [(1, 0, 1), (1, 2, 0), (2, 1, 0), (3, 0, 0), (0, 3, 0), (0, 1, 1)]}
     >>> build_graded_indeces_dict([2],3)
-    {1: [(1, 0), (0, 1)],
- 2: [(1, 1), (2, 0), (0, 2)],
- 3: [(0, 3), (1, 2), (2, 1), (3, 0)]}
+    {0: [(0, 0],
+     1: [(1, 0), (0, 1)],
+     2: [(1, 1), (2, 0), (0, 2)],
+     3: [(0, 3), (1, 2), (2, 1), (3, 0)]}
 
     """
     dimension = sum(growth_vector)
     step = len(growth_vector)
     weights = build_weight_list(growth_vector)
-    graded_indeces_dict = {}
+    graded_indeces_dict = {0:[tuple(0 for j in range(dimension))]}
     """
     The algorithm is:
     For j from 1 to *depth*, we construnct I[j] as follows:
@@ -298,6 +300,32 @@ def reverse_order(monomial):
     mon.reverse()
     return mul_list(mon)
 
+def polynomial_build(coeff_str,variables,degree):
+    """
+    Builds the general form polynomial of *degree* in *variables*.
+
+    Examples:
+    =========
+    
+    >>> x, y, z = symbols('x y z')
+    >>> polynomial_build('f',[x],2)
+    f_{(0,)} + f_{(1,)}*x + f_{(2,)}*x**2
+    >>> polynomial_build('f',[x,y],2)
+    f_{(0, 0)} + f_{(0, 1)}*y + f_{(0, 2)}*y**2 + f_{(1, 0)}*x + f_{(1, 1)}*x*y + f_{(2, 0)}*x**2
+    >>> polynomial_build('f',[x-z,y],2)
+    f_{(0, 0)} + f_{(0, 1)}*y + f_{(0, 2)}*y**2 + f_{(1, 0)}*(x - z) + f_{(1, 1)}*y*(x - z) + f_{(2, 0)}*(x - z)**2
+
+    """
+    num_var = len(variables)
+    indices = build_graded_indeces_dict([num_var],degree)
+    coeff={}
+    for d in range(degree+1):
+        coeff[d] = [Symbol(coeff_str+'_{'+str(pp)+'}') for pp in indices[d]]
+    pol = 0
+    for d in range(degree+1):
+        pol_d = zip(coeff[d],indices[d])
+        pol = pol + sum(pp[0]*monomial_ordered(variables,pp[1]) for pp in pol_d)
+    return pol
 def maximal_lin_ind(vectors):
     """
     Produces a maximal subset of *vectors* of linearly independent vectors.
@@ -611,6 +639,7 @@ class LieAlgebra:
     is_graded = None
     is_stratified = None
     _growth_vector = None
+    _weights = None
     _graded_basis_symbols = None
     _basis_HD = {}
     _a_basis_of_brackets_ = None
@@ -631,6 +660,15 @@ class LieAlgebra:
             return self.brackets_strct_consts(v,w)
         if typev == Matrix:
             return v*w - w*v
+        # TODO: Anyway, the following lines do not work: there is a problem in from_symbols_to_array
+        try:
+            v_array = self.from_symbols_to_array(v)
+            w_array = self.from_symbols_to_array(w)
+            res_array = self.brackets(v_array,w_array)
+            res = self.from_array_to_symbols(res_array)
+            return res
+        except:
+            None
         print('Error 61150e34 : There is no brackets that match it.')
         return None
     
@@ -664,7 +702,7 @@ class LieAlgebra:
             self._basis_symbols = flatten(self.graded_basis_symbols())
         else:
             dim = self.dimension()
-            self._basis_symbols = [symbols(smbl+'_'+str(j) for j in range(dim))]
+            self._basis_symbols = [symbols(smbl+'_'+str(j)) for j in range(dim)]
 
     def basis_symbols_set(self,basis):
         self._basis_symbols = basis
@@ -683,7 +721,7 @@ class LieAlgebra:
     def std_basis_build(self):
         dim = self.dimension()
         std_basis = eye(dim).columnspace()
-        std_basis = [ list(ec) for ec in std_basis ]
+        std_basis = [ Array(list(ec)) for ec in std_basis ]
         self._std_basis = std_basis
 
     def an_outside_basis(self):
@@ -733,7 +771,7 @@ class LieAlgebra:
             self.structure_constants_build()
         return self._structure_constants
 
-    def structure_constants_build(self,rules=None):
+    def structure_constants_build(self,rules=None,label='Gamma'):
         """
         Build structure constants of self using a dictionary *rules*.
 
@@ -752,7 +790,7 @@ class LieAlgebra:
 
         """
         if rules == None:
-            self._structure_constants_build_abstract(rules)
+            self._structure_constants_build_abstract(label)
         elif type(rules) == str:
             self._structure_constants_build_examples(rules)
         elif type(rules) == dict:
@@ -773,13 +811,13 @@ class LieAlgebra:
             self._structure_constants_build_from_rules({(0,1) : [(1,2)]})
         """
 
-    def _structure_constants_build_abstract(self,struct_const):
+    def _structure_constants_build_abstract(self,label='Gamma'):
         """
         Output: tensor of type (2,1) : G[_a,_b,^c]
         brackets(B_a,B_b) = G[_a,_b,^c] B_c    
         """
-        dim = self._dimension
-        G = self._structure_constants_symbol = IndexedBase(struct_const, real=True)
+        dim = self.dimension()
+        G = self._structure_constants_symbol = IndexedBase(label, real=True)
         self._structure_constants = MutableDenseNDimArray([G[a,b,c] for a in range(dim) for b in range(dim) for c in range(dim)],(dim,dim,dim))
         for a in range(dim):
             for b in range(dim):
@@ -812,19 +850,25 @@ class LieAlgebra:
         G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
         but it is easier to check it on symbolic vectors.
         """
-        dim = self._dimension
-        xx = IndexedBase('x', real=True)
-        yy = IndexedBase('y', real=True)
-        zz = IndexedBase('z', real=True)
-        x = MutableDenseNDimArray([xx[j] for j in range(dim)],(dim))
-        y = MutableDenseNDimArray([yy[j] for j in range(dim)],(dim))
-        z = MutableDenseNDimArray([zz[j] for j in range(dim)],(dim))
-        res = simplify(self.brackets(self.brackets(x,y),z) + self.brackets(self.brackets(y,z),x) + self.brackets(self.brackets(z,x),y))
-        try:
-            res = res.applyfunc(simplify)
-        except:
-            None
+        a = self.a_vector('a')
+        b = self.a_vector('b')
+        c = self.a_vector('c')
+        res = self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) == 0*a
         return res
+# The above should work better.
+#        dim = self._dimension
+#        xx = IndexedBase('x', real=True)
+#        yy = IndexedBase('y', real=True)
+#        zz = IndexedBase('z', real=True)
+#        x = MutableDenseNDimArray([xx[j] for j in range(dim)],(dim))
+#        y = MutableDenseNDimArray([yy[j] for j in range(dim)],(dim))
+#        z = MutableDenseNDimArray([zz[j] for j in range(dim)],(dim))
+#        res = simplify(self.brackets(self.brackets(x,y),z) + self.brackets(self.brackets(y,z),x) + self.brackets(self.brackets(z,x),y))
+#        try:
+#            res = res.applyfunc(simplify)
+#        except:
+#            None
+#        return res
     
     def from_symbols_to_array(self,v):
         basis = self.basis_symbols()
@@ -896,7 +940,7 @@ class LieAlgebra:
         *v* is a string that is used to define symbols v1,...,vn for the components of the output.
         The output is an Array.
         """
-        return Array(symbols(v+'[:%d]'%self._dimension))
+        return Array(symbols(v+'_:%d'%self._dimension))
 
     def _multbra_u(self,r,v,s,w,u):
         """
@@ -971,16 +1015,17 @@ class LieAlgebra:
         """
         res = 0*v
         for n in range(1,N+1):
-            coef = (-1)**(n-1)/n
+            coef = Rational( Integer( (-1)**(n-1) ) , Integer(n) )
             RS = self._list_rs(n,N)
             RS_sum = 0*v
             for rs in RS:
-                somma = sum(rs)
+                somma = Integer(sum(rs))
                 rs_fact = [factorial(x) for x in rs]
-                prodotto = mul_list(rs_fact)
+                prodotto = Integer(prod(rs_fact))
                 r = [rs[2*x] for x in range(n)]
                 s = [rs[2*x+1] for x in range(n)]
-                RS_sum = RS_sum + (somma*prodotto)**(-1) * self._multbra(r,v,s,w)
+                RS_sum = RS_sum + Rational(1, somma*prodotto ) * self._multbra(r,v,s,w)
+                #RS_sum = RS_sum + (somma*prodotto)**(-1) * self._multbra(r,v,s,w)
             res = res + coef * RS_sum
         return res
 
@@ -992,6 +1037,10 @@ class LieAlgebra:
         which needs to be nilpotent.
         Otherwise, use bch_trnc(v,w,N) with level of precision N.
         """
+        if type(v) != Array:
+            v = Array(v)
+        if type(w) != Array:
+            w = Array(w)
         step = self.step()
         if type(step) == int :
             return self.bch_trnc(v,w,step)
@@ -1040,6 +1089,21 @@ class LieAlgebra:
     def growth_vector_set(self,gr_vect):
         self._growth_vector = gr_vect
 
+    def weights(self):
+        if self._weights == None:
+            self.weights_build()
+        return self._weights
+    def weights_build(self):
+        gr_vct = self.growth_vector()
+        w = []
+        for j in range(len(gr_vct)):
+            w = w + [j+1 for i in range(gr_vct[j])]
+        self._weights = w
+    def dil(self,l,v):
+        v = list(v)
+        w = self.weights()
+        lv = [l**w[i]*v[i] for i in range(len(v))]
+        return Array(lv)
     def graded_basis_symbols(self):
         if self._graded_basis_symbols == None:
             self.graded_basis_symbols_build()
@@ -1350,7 +1414,7 @@ class LieAlgebra_Morphism:
         la_ran = self.lie_algebra_range()
         basis_std = std_basis_domain()
         dim = la_dom.dimension()
-        pairs = [ (basis_std[i],basis_std[j]) : for i in range(j) for j in range(dim)]
+        pairs = [ (basis_std[i],basis_std[j])  for i in range(j) for j in range(dim)]
         for (b1,b2) in pairs:
             test = simplify( self(la_dom(b1,b2)) - la_range(self(b1),self(b2)) )
             if test != 0:
@@ -1488,7 +1552,7 @@ class LieAlgebra_Derivation:
         la_ran = self.lie_algebra_range()
         basis_std = std_basis_domain()
         dim = la_dom.dimension()
-        pairs = [ (basis_std[i],basis_std[j]) : for i in range(j) for j in range(dim)]
+        pairs = [ (basis_std[i],basis_std[j])  for i in range(j) for j in range(dim)]
         for (b1,b2) in pairs:
             test = simplify( self(la_dom(b1,b2)) - la_range(self(b1),b2) - la_range(b1,self(b2)) )
             if test != 0:
