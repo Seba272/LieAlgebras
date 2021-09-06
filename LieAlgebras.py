@@ -2,6 +2,9 @@ from sympy import *
 import time as time
 
 #TODO:
+#    - make stuff_build internal and add option 'buildme = True' in functions
+#    - capability to use different basis (although I never need it)
+#    - make name of functions more easy to access: like, everything that has to do with basis, call it 'basis_something'.
 #    - class Tensor_algebra with:
 #        - abstract basis, dual basis, contractions.
 #    - class jet with
@@ -871,10 +874,12 @@ class LieAlgebra:
 #        return res
     
     def from_symbols_to_array(self,v):
+        if type(v) in {list,Array} :
+            return v
         basis = self.basis_symbols()
         v = expand(v)
         v_coeff_dict = noncomm_pol_dict(v)
-        v_array = Array([v_coeff_dict[b] for b in basis])
+        v_array = Array([v_coeff_dict.get(b,0) for b in basis])
         return v_array
 
     def from_array_to_symbols(self,v):
@@ -1131,7 +1136,7 @@ class LieAlgebra:
             for k in range(growth_vector[j]):
                 base_j_layer.append(symbols(smbl+'^'+str(j)+'_'+str(k),commutative=False))
             self._graded_basis_symbols.append(base_j_layer)
-        self._basis_symbols = flatten(self.graded_basis_symbols)
+        self._basis_symbols = flatten(self._graded_basis_symbols)
 
     def dual_basis_symbols(self):
         if self._dual_basis_symbols == None:
