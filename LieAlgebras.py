@@ -659,10 +659,14 @@ class LieAlgebra:
         if self._use_outside_brackets:
             return self.brackets_outside(v,w)
         typev = type(v)
+        if typev == Matrix:
+            v = Array(v)
+            w = Array(w)
+            typev = type(v)
         if typev == list or typev == Array:
             return self.brackets_strct_consts(v,w)
-        if typev == Matrix:
-            return v*w - w*v
+        #if typev == Matrix:
+        #    return v*w - w*v
         # TODO: Anyway, the following lines do not work: there is a problem in from_symbols_to_array
         try:
             v_array = self.from_symbols_to_array(v)
@@ -877,6 +881,15 @@ class LieAlgebra:
         if type(v) in {list,Array} :
             return v
         basis = self.basis_symbols()
+        v = expand(v)
+        v_coeff_dict = noncomm_pol_dict(v)
+        v_array = Array([v_coeff_dict.get(b,0) for b in basis])
+        return v_array
+
+    def from_dual_symbols_to_array(self,v):
+        if type(v) in {list,Array} :
+            return v
+        basis = self.dual_basis_symbols()
         v = expand(v)
         v_coeff_dict = noncomm_pol_dict(v)
         v_array = Array([v_coeff_dict.get(b,0) for b in basis])
@@ -1264,7 +1277,7 @@ class LieAlgebra:
             return 
         dimension = self.dimension()
         dimension_1 = self.growth_vector()[0]
-        basis_1 = eye(dimension)[:,dimension_1].columnspace()
+        basis_1 = eye(dimension)[:,:dimension_1].columnspace()
         basis = [basis_1]
         prev_len = 0
         new_len = len(flatten(basis))
@@ -1273,6 +1286,9 @@ class LieAlgebra:
             prev_len = new_len
             vects_trpl = [[v,w,self.brackets(v,w)] for v in basis_1 for w in basis[-1]]
             vects = [VV[2] for VV in vects_trpl]
+            print()
+            pprint(vects_trpl)
+            pprint(vects)
             basis.append(maximal_lin_ind(vects.reverse())) # Since this method starts from the last element, for the subsequent lines it is better to reverse vects
             for bb in basis[-1]:
                 for VV in vects_trpl:

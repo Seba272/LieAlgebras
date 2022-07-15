@@ -440,3 +440,4 @@ returing what should be a scalar, that is, a tensor of shape (1,1).
         indices.append( (2*i,2*j+1) )
         indices.append( (2*i+1,2*j) )
     return tensorcontraction(tensr,*indices)
+

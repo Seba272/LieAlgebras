@@ -1139,6 +1139,32 @@ class JetAlgebra(LieAlgebra):
         self._basis_HD_graded_dict = None
         self._basis_outer_dict = None
 
+    def build_me(self):
+        tot = 6
+        def header(a,b):
+            return f"Step {a} of {b}:"
+        print(header(1,tot),"Construct set of indices:")
+        print(self.indices)
+        print()
+        print(header(2,tot),"Construct HD basis:")
+        print(self.basis_HD_dict)
+        print()
+        print(header(3,tot),"and outer basis:")
+        print(self.basis_outer)
+        print()
+        print(header(4,tot),"Construct sybolic basis:")
+        print(self.basis_symbolic)
+        print()
+        # We construct the transformation rules 
+        # THIS OPERATION CAN USE A LOT OF TIME!
+        print(header(5,tot),"Construct functions from outer basis to the others.")
+        self.from_outer_to_others_build()
+        print()
+        print(header(6,tot),"Construct Lie bracket operation")
+        self.lie_brackets_build()
+        print()
+        print("Done")
+
     @property
     def order(self):
         return self._order
@@ -1374,9 +1400,6 @@ Dictionary that gives all indices for each layer.
         for idx in indices:
             basis.append(diz[idx])
         self.basis_outer = basis
-        # Finally, we construct the transformation rules 
-        # THIS LAST OPERATION CAN USE A LOT OF TIME!
-        self.from_outer_to_others_build()
     
     def from_outer_to_others_build(self):
         """
@@ -1406,6 +1429,92 @@ A complicated operation.
         self.from_outer_to_symbols = lambda v:  Linv(fun(v))
         self.from_outer_to_array = lambda v: self.from_symbols_to_array( Linv(fun(v)) )
 
+    def rcontr(self,X,v):
+        v = self.lie_algebra_domain.boil_to_V1(v)
+        v = expand(v)
+        X = expand(X)
+        return self._rcontr_1(X,v)
+    
+    def _rcontr_1(self,X,v):
+        if isinstance(v,Add):
+            return sum([self._rcontr_1(X,z) for z in v.args])
+        if isinstance(v,Pow):
+            return self._rcontr_1( self._rcontr_2(X, v.base ) , Pow(v.base,v.exp-1) )
+        if isinstance(v,Mul):
+            comm , non_comm = v.args_cnc()
+            return Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+        return self._rcontr_2(X,v)
+        
+    def _rcontr_2(self,X,v):
+        if isinstance(X,(int,float)) or X.is_number:
+            return 0
+        if isinstance(X,Add):
+            return sum([self._rcontr_2(z,v) for z in X.args])
+        if isinstance(X,Mul):
+            comm , non_comm = X.args_cnc()
+            X_comm = Mul(*comm)
+            X_target = non_comm[-1]
+            if X_target not in self.target_vector_space.basis_symbolic:
+                return 0
+            X_domain = non_comm[:-1]
+            X_last = X_domain[-1]
+            X_rest = X_domain[:-1]
+            return X_comm * Mul(*X_rest) * self._rcontr_3(X_last,v) * X_target
+        return self._rcontr_3(X,v)
+    
+    def _rcontr_3(self,X,v):
+        if isinstance(X,Pow):
+            return Pow(X.base, X.exp - 1) * self._rcontr_3(X.base, v) 
+        else:
+            return self.lie_algebra_domain.pairing_dualVSvect_symbolic(X,v)
+
+    def bracketJet(self,v,w):
+        return  self.lie_algebra_domain(v,w) + self.rcontr(v,w) - self.rcontr(w,v)
+
+    def lie_brackets_build(self):
+        """
+lad(v,w) + rcontr(v,w) - rcontr(w,v)
+        """
+        def is_in_domain(v):
+            return v[1] == 0
+        lad = self.lie_algebra_domain
+        indices = self.indices
+        basis_o = self.basis_outer_dict
+        basis_s = self.basis_symbolic_dict
+        dim = self.dimension
+        diz = {}
+        for i1 in range(dim):
+            idx1 = indices[i1]
+            for i2 in range(i1):
+                idx2 = indices[i2]
+                b1_s = basis_s[idx1]
+                b1_o = basis_o[idx1]
+                b2_s = basis_s[idx2]
+                b2_o = basis_o[idx2]
+                if is_in_domain(idx1): # then also is_in_domain(idx2)
+                    diz[( b1_s, b2_s )] = self.from_outer_to_symbols( lad(b1_o,b2_o) )
+                elif is_in_domain(idx2): # but now not is_in_domain(idx1), thanks to the 'elif'
+                    diz[( b1_s, b2_s )] = self.from_outer_to_symbols( self.rcontr(b1_o,b2_o) )
+                else: # neither are in domain
+                    diz[( b1_s, b2_s )] = 0
+        self.brackets.rules = diz
+                    
+                    
+
+            
+        
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1424,6 +1533,21 @@ A complicated operation.
 
 
 # Useful instances:
+            
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 LineVectorSpace = VectorSpace()
 LineVectorSpace.basis_symbolic = ['@1']
