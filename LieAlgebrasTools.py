@@ -209,15 +209,22 @@ def build_graded_indices_dict(growth_vector, depth):
             if j-weights[k] == 0:
                 idx_n = [0 for j in range(dimension)]
                 idx_n[k]+=1
-                new_Ij.append(tuple(idx_n))
+                idx_n_t = tuple(idx_n)
+                if idx_n_t not in new_Ij:
+                    new_Ij.append(idx_n_t)
+                #new_Ij.append(tuple(idx_n))
                 continue
             # else:
             for idx in graded_indices_dict[j-weights[k]]:
                 idx_n = list(idx)
                 idx_n[k]+=1
-                new_Ij.append(tuple(idx_n))
+                idx_n = tuple(idx_n)
+                if idx_n not in new_Ij:
+                    new_Ij.append(idx_n)
+                #new_Ij.append(tuple(idx_n))
         # The previous loop produces duplicates, which are eliminated by ``list(set())``.
-        graded_indices_dict[j] = list(set(new_Ij))
+        #graded_indices_dict[j] = list(set(new_Ij))
+        graded_indices_dict[j] = new_Ij
     return graded_indices_dict
 
 def mul_list(ll):
@@ -441,3 +448,13 @@ returing what should be a scalar, that is, a tensor of shape (1,1).
         indices.append( (2*i+1,2*j) )
     return tensorcontraction(tensr,*indices)
 
+def vect_subs(a,v,w):
+    """
+Does a.subs({v:w}), but with v and w symbolic vectors.
+    """
+    v_dict = noncomm_pol_dict(v)
+    w_dict = noncomm_pol_dict(w)
+    diz = {}
+    for x in v_dict.keys():
+        diz[v_dict[x]] = w_dict.get(x,0)
+    return a.subs(diz)

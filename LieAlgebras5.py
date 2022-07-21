@@ -1,5 +1,6 @@
 from sympy import *
 from LieAlgebrasTools import *
+from copy import copy
 
 
 
@@ -67,11 +68,11 @@ class VectorSpace:
     def dimension(self):
         if self._dimension == None:
             if self._basis_symbolic != None:
-                self.dimension = len(self._basis_symbolic)
+                self._dimension = len(self._basis_symbolic)
             elif self._basis_coord != None:
-                self.dimension = len(self._basis_coord)
+                self._dimension = len(self._basis_coord)
             elif self._basis_outer != None:
-                self.dimension = len(self._basis_outer)
+                self._dimension = len(self._basis_outer)
             else:
                 raise ValueError("Please, set the dimension.")
         return self._dimension
@@ -300,7 +301,7 @@ because it highly depends on the type of external objects.
         *v* is a string that is used to define symbols v1,...,vn for the components of the output.
         The output is a linear combinatio of symbols.
         """
-        return self.from_array_to_symbols( list( symbols(smbl + '_:%d'%self._dimension)))
+        return self.from_array_to_symbols( list( symbols(smbl + '_:%d'%self.dimension)))
 
     @property
     def dual_basis_symbolic(self):
@@ -805,16 +806,34 @@ self(b_i,b_j) = sum_k Gamma[^k,_i,_j] b_k
             dim = self.dimension
             self._structure_constants = self.brackets.as_tensor.reshape(dim,dim,dim)
 
+#    def check_jacobi(self):
+#        """
+#        G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
+#        but it is easier to check it on symbolic vectors.
+#        """
+#        a = self.a_vector_symbolic('a')
+#        b = self.a_vector_symbolic('b')
+#        c = self.a_vector_symbolic('c')
+#        return simplify( self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) ) == 0*a
+
     def check_jacobi(self):
         """
         G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
         but it is easier to check it on symbolic vectors.
         """
-        a = self.a_vector_symbolic('a')
-        b = self.a_vector_symbolic('b')
-        c = self.a_vector_symbolic('c')
-        res = self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) == 0*a
-        return res
+        basis = self.basis_symbolic
+        dim = self.dimension
+        res = True
+        for i in range(dim):
+            for j in range(i):
+                for k in range(j):
+                    a = basis[i]
+                    b = basis[j]
+                    c = basis[k]
+                    jacobi = simplify( self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) ) 
+                    res = res * (jacobi ==0)
+        return bool(res)
+
     @property
     def rules_vector_fields(self):
         """
@@ -1430,6 +1449,9 @@ A complicated operation.
         self.from_outer_to_array = lambda v: self.from_symbols_to_array( Linv(fun(v)) )
 
     def rcontr(self,X,v):
+        """
+returns v rcontr X, with both X and v written in the outer basis.
+        """
         v = self.lie_algebra_domain.boil_to_V1(v)
         v = expand(v)
         X = expand(X)
@@ -1442,7 +1464,15 @@ A complicated operation.
             return self._rcontr_1( self._rcontr_2(X, v.base ) , Pow(v.base,v.exp-1) )
         if isinstance(v,Mul):
             comm , non_comm = v.args_cnc()
-            return Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+            if len(non_comm) == 1:
+                return Mul(*comm) * self._rcontr_2(X, non_comm[-1])
+            else:
+                return Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+#            print(0, comm,non_comm)
+#            res =  Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+#            print(1, Mul(*comm), self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) ))
+#            print(2, self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+#            return res
         return self._rcontr_2(X,v)
         
     def _rcontr_2(self,X,v):
@@ -1468,7 +1498,18 @@ A complicated operation.
         else:
             return self.lie_algebra_domain.pairing_dualVSvect_symbolic(X,v)
 
+    def rcontr_symbolic(self,X,v):
+        """
+returns v rcontr X, with both X and v written in the symbolic basis.
+        """
+        return self.from_outer_to_symbols( self.rcontr( self.from_symbols_to_outer(X), self.from_symbols_to_outer(v) ) )
+
     def bracketJet(self,v,w):
+        """
+Returns the brackets [v,w] in jet, in the outer basis.
+
+lad(v,w) + rcontr(v,w) - rcontr(w,v)
+        """
         return  self.lie_algebra_domain(v,w) + self.rcontr(v,w) - self.rcontr(w,v)
 
     def lie_brackets_build(self):
@@ -1491,17 +1532,69 @@ lad(v,w) + rcontr(v,w) - rcontr(w,v)
                 b1_o = basis_o[idx1]
                 b2_s = basis_s[idx2]
                 b2_o = basis_o[idx2]
-                if is_in_domain(idx1): # then also is_in_domain(idx2)
+                if is_in_domain(idx1) and is_in_domain(idx2): # then also is_in_domain(idx2)
                     diz[( b1_s, b2_s )] = self.from_outer_to_symbols( lad(b1_o,b2_o) )
+                elif is_in_domain(idx1): # but now not is_in_domain(idx2), thanks to the 'elif'
+                    diz[( b1_s, b2_s )] = - self.from_outer_to_symbols( self.rcontr(b2_o,b1_o) )
                 elif is_in_domain(idx2): # but now not is_in_domain(idx1), thanks to the 'elif'
                     diz[( b1_s, b2_s )] = self.from_outer_to_symbols( self.rcontr(b1_o,b2_o) )
                 else: # neither are in domain
                     diz[( b1_s, b2_s )] = 0
         self.brackets.rules = diz
                     
-                    
+    def _sd_prod_build(self):
+        """
+Build the semidirect product.
 
-            
+(exp(x),A)(exp(y),B) = (exp(x)exp(y) , B + e^{y rcontr } A
+        """
+        HD = VectorSpace()
+        indices = self.indices
+        basis = self.basis_symbolic_dict
+        HD.basis_symbolic = [basis[idx] for idx in indices if idx[1]!=0]
+        self.HD = HD
+
+        rcontr_w = LinMap()
+        rcontr_w.domain = HD
+        rcontr_w.range = HD
+        w = self.lie_algebra_domain.a_vector_symbolic('w')
+        w = self.from_outer_to_symbols(w)
+        rcontr_w.rules = { b: self.rcontr_symbolic(b,w) for b in HD.basis_symbolic}
+        self.rcontr_w = rcontr_w
+
+        exp_rcontr_w = LinMap()
+        exp_rcontr_w.domain = HD
+        exp_rcontr_w.range = HD
+        exp_rcontr_w.as_matrix = exp(self.rcontr_w.as_matrix)
+        self.exp_rcontr_w = exp_rcontr_w
+
+    def lad_part_symbolic(self,v):
+        """
+Return the part of v that belongs to the lie_algebra_domain.
+        """
+        v_out = self.from_symbols_to_outer(v)
+        v_out = expand(v_out)
+        v_dict = noncomm_pol_dict(v_out)
+        basis_lad = self.lie_algebra_domain.basis_symbolic
+        v_lad = 0
+        for b in basis_lad:
+            v_lad += v_dict.get(b,0)*b
+        return v_lad
+
+    def sd_prod(self,v,w):
+        """
+(exp(x),A)(exp(y),B) = (exp(x)exp(y) , B + e^{y rcontr } A
+        """
+        x = self.lad_part_symbolic(v)
+        A = v - self.from_outer_to_symbols(x)
+        y = self.lad_part_symbolic(w)
+        B = w - self.from_outer_to_symbols(y)
+        lad = self.lie_algebra_domain
+        w = lad.a_vector_symbolic('w')
+        exp_rcontr_y = copy(self.exp_rcontr_w)
+        exp_rcontr_y.as_matrix = vect_subs(exp_rcontr_y.as_matrix , w, y)
+        return self.from_outer_to_symbols( lad.bch(x,y) ) + B + exp_rcontr_y(A)
+
         
 
 
@@ -1533,6 +1626,7 @@ lad(v,w) + rcontr(v,w) - rcontr(w,v)
 
 
 # Useful instances:
+
             
         
 
