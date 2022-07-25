@@ -785,6 +785,9 @@ class LieAlgebra(VectorSpace):
         self._a_basis_symbolic_of_brackets_graded = None
         self._a_basis_symbolic_of_brackets_dict = None
         self._a_basis_symbolic_of_brackets_dict_V1 = None
+
+        self._generic_derivation = None
+        self._generic_derivation_graded = None
     
     def __call__(self,v,w):
         return self.brackets.apply(v,w)
@@ -856,7 +859,7 @@ self(b_i,b_j) = sum_k Gamma[^k,_i,_j] b_k
         self._rules_vector_fields = diz
     def declare_nilpotent(self, step : int = None, isit : bool = True):
         self.is_nilpotent = isit
-        self.step = step
+        self._step = step
 
     def declare_graded(self, growth_vector : list = None, step : int = None, isit : bool = True):
         if step == None and growth_vector != None:
@@ -1142,6 +1145,107 @@ the algorithm chooses one just as it is built.
             return X.subs(self.a_basis_symbolic_of_brackets_dict_V1 )
         except:
             return X
+    
+    @property
+    def generic_derivation(self):
+        """
+A matrix D that represent all derivations of the Lie algebra.
+        """
+        if self._generic_derivation == None:
+            self._generic_derivation_build()
+        return self._generic_derivation
+
+    def _generic_derivation_build(self):
+        la = self
+        dim = la.dimension
+        # Construct a generic derivation
+        der = LinMap()
+        der.domain = la
+        der.range = la
+        DD = Matrix(MatrixSymbol('D',dim,dim))
+        der.as_matrix = DD
+        
+        # build list of linear conditions
+        conditions = []
+        for i in range(dim):
+            for j in range(i):
+                a = la.basis_symbolic[i]
+                b = la.basis_symbolic[j]
+                conditions.append( la(der(a),b) + la(a,der(b)) - der(la(a,b)) )
+        # flatten out the list of conditions
+        conditions_list = [ list(la.from_symbols_to_array(c)) for c in conditions ]
+        conditions_list = flatten(conditions_list)
+        
+        # Solve the conditions (they are linear equations)
+        conditions_list = list(set(conditions_list))
+        solutions = linsolve(conditions_list,list(DD)) # <-- This may take time!
+        solutions = list(*solutions)
+        
+        # Make the solution into a dictionary {der[i,j]: ... }
+        solutions_diz = {}
+        DD_list = list(DD)
+        for dd in DD_list:
+            solutions_diz[dd] = solutions[DD_list.index(dd)]
+        
+        # Apply the rules found as solutions to the generic linear map:
+        der.as_matrix = DD.subs(solutions_diz)
+        self._generic_derivation = der
+
+    @property
+    def generic_derivation_graded(self):
+        """
+A matrix D that represent all strata-preserving derivations of the Lie algebra.
+        """
+        if not self.is_stratified:
+            raise ValueError("The lie algebra must be stratified.")
+        if self._generic_derivation_graded == None:
+            self._generic_derivation_graded_build()
+        return self._generic_derivation_graded
+
+    def _generic_derivation_graded_build(self):
+        la = self
+        dim = la.dimension
+        # We could start with the generic derivation, but maybe not.
+        # der = la.generic_derivation
+        # Construct a generic derivation
+        der = LinMap()
+        der.domain = la
+        der.range = la
+        DD = Matrix(MatrixSymbol('D',dim,dim))
+        der.as_matrix = DD
+        
+        # build list of linear conditions
+        conditions = []
+        for i in range(dim):
+            for j in range(i):
+                a = la.basis_symbolic[i]
+                b = la.basis_symbolic[j]
+                conditions.append( la(der(a),b) + la(a,der(b)) - der(la(a,b)) )
+        # flatten out the list of conditions
+        conditions_list = [ list(la.from_symbols_to_array(c)) for c in conditions ]
+        conditions_list = flatten(conditions_list)
+
+        # conditions of mapping V_1 to V_1 (i.e., of being strata-preserving)
+        dimV1 = la.growth_vector[0]
+        for b in la.basis_symbolic[:dimV1]:
+            b_der = la.from_symbols_to_array(der(b))
+            b_der = flatten(list(b_der))
+            conditions_list.extend(b_der[dimV1:])
+        
+        # Solve the conditions (they are linear equations)
+        conditions_list = list(set(conditions_list))
+        solutions = linsolve(conditions_list,list(DD)) # <-- This may take time!
+        solutions = list(*solutions)
+        
+        # Make the solution into a dictionary {der[i,j]: ... }
+        solutions_diz = {}
+        DD_list = list(DD)
+        for dd in DD_list:
+            solutions_diz[dd] = solutions[DD_list.index(dd)]
+        
+        # Apply the rules found as solutions to the generic linear map:
+        der.as_matrix = DD.subs(solutions_diz)
+        self._generic_derivation_graded = der
 
 
 class JetAlgebra(LieAlgebra):
@@ -1159,7 +1263,7 @@ class JetAlgebra(LieAlgebra):
         self._basis_outer_dict = None
 
     def build_me(self):
-        tot = 6
+        tot = 7
         def header(a,b):
             return f"Step {a} of {b}:"
         print(header(1,tot),"Construct set of indices:")
@@ -1174,12 +1278,17 @@ class JetAlgebra(LieAlgebra):
         print(header(4,tot),"Construct sybolic basis:")
         print(self.basis_symbolic)
         print()
+        print(header(5,tot),"Construct growth vector")
+        gr_vct = [len(idxs) for idxs in self.indices_graded.values()]
+        self.declare_stratified(gr_vct)
+        print(self.growth_vector)
+        print()
         # We construct the transformation rules 
         # THIS OPERATION CAN USE A LOT OF TIME!
-        print(header(5,tot),"Construct functions from outer basis to the others.")
+        print(header(6,tot),"Construct functions from outer basis to the others.")
         self.from_outer_to_others_build()
         print()
-        print(header(6,tot),"Construct Lie bracket operation")
+        print(header(7,tot),"Construct Lie bracket operation")
         self.lie_brackets_build()
         print()
         print("Done")
