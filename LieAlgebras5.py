@@ -1213,7 +1213,6 @@ Builds self.a_basis_symbolic_of_brackets_dict_V1_anti .
              for v in diz_anti.keys():
                 diz_anti[v] = diz_anti[v].subs(diz_anti)
         self._a_basis_symbolic_of_brackets_dict_V1_anti = diz_anti
-
     
     @property
     def generic_derivation(self):
@@ -1630,7 +1629,7 @@ A complicated operation.
         """
 returns v rcontr X, with both X and v written in the outer basis.
         """
-        v = self.lie_algebra_domain.boil_to_V1(v)
+        v = self.lie_algebra_domain.boil_to_V1_anti(v)
         v = expand(v)
         X = expand(X)
         return self._rcontr_1(X,v)
