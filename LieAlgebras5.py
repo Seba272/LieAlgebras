@@ -786,6 +786,8 @@ class LieAlgebra(VectorSpace):
         self._a_basis_symbolic_of_brackets_dict = None
         self._a_basis_symbolic_of_brackets_dict_V1 = None
 
+        self._a_basis_symbolic_of_brackets_dict_V1_anti = None:
+
         self._generic_derivation = None
         self._generic_derivation_graded = None
     
@@ -1164,6 +1166,54 @@ the algorithm chooses one just as it is built.
             return X.subs(self.a_basis_symbolic_of_brackets_dict_V1 )
         except:
             return X
+    
+    def boil_to_V1_anti(self,X):
+        """
+Returns a symbolic expression as anti-lie brackets of elements in the first layer
+
+Works only in stratified Lie algebras.
+
+The result is a priori not unique: 
+the algorithm chooses one just as it is built.
+
+This method is meant to be used to contruct an lie-algebra anti-morphism given a linear map on the first layer.
+A Lie algebra anti-morphism is a linear map L between Lie algebras such that
+$$
+L([x,y]) = - [Lx,Ly]
+$$
+        """
+        try:
+            return X.subs(self.a_basis_symbolic_of_brackets_dict_V1_anti )
+        except:
+            return X
+
+    @property
+    def a_basis_symbolic_of_brackets_dict_V1_anti(self):
+        """
+Returns a dictionary {z: -(x*y-y*x)}
+
+so that z is the bracket x and y, and both x and y are in the first layer only.
+So, it is like self.a_basis_symbolic_of_brackets_dict(),
+but where only elements of the first layer appear
+        """
+        if self._a_basis_symbolic_of_brackets_dict_V1_anti == None:
+            self._a_basis_symbolic_of_brackets_dict_V1_anti_build()
+        return  self._a_basis_symbolic_of_brackets_dict_V1_anti
+    
+    def _a_basis_symbolic_of_brackets_dict_V1_anti_build(self):
+        """
+Builds self.a_basis_symbolic_of_brackets_dict_V1_anti .
+        """
+        diz_s = self.a_basis_symbolic_of_brackets_dict
+        diz_anti = {}
+        # If z = [x,y], then we find z:xy-yx and we change it into z:-(xy-yx)
+        for key in diz_s.keys():
+            diz_anti[key] = - diz_s[key]
+        for j in range(self.step - 1):
+             for v in diz_anti.keys():
+                diz_anti[v] = diz_anti[v].subs(diz_anti)
+        self._a_basis_symbolic_of_brackets_dict_V1_anti = diz_anti
+
     
     @property
     def generic_derivation(self):
