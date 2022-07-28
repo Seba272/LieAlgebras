@@ -819,14 +819,22 @@ self(b_i,b_j) = sum_k Gamma[^k,_i,_j] b_k
 #        c = self.a_vector_symbolic('c')
 #        return simplify( self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) ) == 0*a
 
-    def check_jacobi(self):
+    def check_jacobi(self, verbose = False):
         """
-        G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
-        but it is easier to check it on symbolic vectors.
+Checks the Jacobi identity using the symbolic basis
+
+The Jacobi identity is
+$$
+[a,[b,c]] + [b,[c,a]] + [c,[a,b]] == 0
+$$
+If *verbose* is *True*, then it prints the triples a, b, c where Jacobi fails,
+together with the indices i, j, k of these vectors in the basis,
+and the non-zero result of the Jacobi sum.
+
         """
         basis = self.basis_symbolic
         dim = self.dimension
-        res = True
+        itis = True
         for i in range(dim):
             for j in range(i):
                 for k in range(j):
@@ -834,8 +842,19 @@ self(b_i,b_j) = sum_k Gamma[^k,_i,_j] b_k
                     b = basis[j]
                     c = basis[k]
                     jacobi = simplify( self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) ) 
-                    res = res * (jacobi ==0)
-        return bool(res)
+                    if jacobi != 0:
+                        itis = False
+                        if verbose:
+                            print('Jacobi identity [a,[b,c]] + [b,[c,a]] + [c,[a,b]] fails with')
+                            print('i = ', i)
+                            print('a = ', a)
+                            print('j = ', j)
+                            print('b = ', b)
+                            print('k = ', k)
+                            print('c = ', c)
+                            print('res = ', jacobi)
+                            print()
+        return itis
 
     @property
     def rules_vector_fields(self):
