@@ -786,7 +786,7 @@ class LieAlgebra(VectorSpace):
         self._a_basis_symbolic_of_brackets_dict = None
         self._a_basis_symbolic_of_brackets_dict_V1 = None
 
-        self._a_basis_symbolic_of_brackets_dict_V1_anti = None:
+        self._a_basis_symbolic_of_brackets_dict_V1_anti = None
 
         self._generic_derivation = None
         self._generic_derivation_graded = None
@@ -1109,8 +1109,6 @@ and the non-zero result of the Jacobi sum.
             bas_bra_s_g.append(bas_bra_s[:m])
             bas_bra_s = bas_bra_s[m:]
         self._a_basis_symbolic_of_brackets_graded = bas_bra_s_g
-
-        
 
     @property
     def a_basis_symbolic_of_brackets_dict(self):
@@ -1771,10 +1769,18 @@ Return the part of v that belongs to the lie_algebra_domain.
         exp_rcontr_y = copy(self.exp_rcontr_w)
         exp_rcontr_y.as_matrix = vect_subs(exp_rcontr_y.as_matrix , w, y)
         return self.from_outer_to_symbols( lad.bch(x,y) ) + B + exp_rcontr_y(A)
+    
+    @property
+    def one(self):
+        return self.target_vector_space.basis_symbolic[0]
 
+    def A(self,*idx):
+        idx = tuple(idx)
+        if sum(list(idx)) < 0:
+            return self.basis_symbolic_dict[(idx,0)]
+        else:
+            return self.basis_symbolic_dict[(idx,one)]
         
-
-
 
 
 
@@ -1803,6 +1809,7 @@ Return the part of v that belongs to the lie_algebra_domain.
 
 
 # Useful instances:
+
 
             
         
