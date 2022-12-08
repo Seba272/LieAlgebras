@@ -506,8 +506,36 @@ Builds a graded basis following the growth vector.
         A.domain = W
         A.range = self
         A.rules = {a:W.from_symbols_to_outer(a) for a  in W.basis_symbolic}
+        W.from_symbols_to_outer = A
         W.from_outer_to_symbols = A.pseudo_inverse
         return W
+
+    def is_subalgebra_of(self, liealgebra:'LieAlgebra', force=False):
+        """
+        Returns true if self (a vector space) is a subalgebra of lieaglebra.
+
+        """
+        if not force and self.from_symbols_to_outer.range is not liealgebra:
+            raise ValueError("The subspace given does not seem to be a subspace of the given Lie algebra. If you know better, you can force the method adding 'force = True'.")
+        subspace = self
+        subbasis = subspace.basis_outer
+        subdim = subspace.dimension
+        for j in range(subdim):
+            for i in range(j):
+                a = subbasis[i]
+                b = subbasis[j]
+                ab = liealgebra(a,b)
+                abc = ab - subspace.from_symbols_to_outer(subspace.from_outer_to_symbols(ab))
+                abc = simplify(abc)
+                # Now, abc is [a,b] - pr([a,b]) , where pr:liealgebra -> subspace is a projection.
+                if abc != 0:
+                    print(i,a)
+                    print(j,b)
+                    print(abc)
+                    return False
+        return True
+
+
 
 
 
@@ -1348,7 +1376,47 @@ A matrix D that represent all strata-preserving derivations of the Lie algebra.
         der.as_matrix = DD.subs(solutions_diz)
         self._generic_derivation_graded = der
 
+    def lie_subalgebra(self, basis:list, smbl:str):
+        """
+        Returns the Lie subalgebra of self with basis 'basis'.
 
+
+        The given basis will be the outer basis of the subspace.
+        The string smbl is used to make the symbolic basis of the subspace.
+        
+        Warning! The string smbl should be different from the string used in the ambient vector space V,
+        otherwise the program will use the same symbols for the basis...
+        Things may break.
+
+
+        """
+        W = LieAlgebra()
+        W.basis_outer = basis
+        W.basis_symbolic_set(None, smbl)
+        A = LinMap()
+        A.domain = W
+        A.range = self
+        A.rules = {a:W.from_symbols_to_outer(a) for a  in W.basis_symbolic}
+        W.from_symbols_to_outer = A
+        W.from_outer_to_symbols = A.pseudo_inverse
+        if not W.is_subalgebra_of(self):
+            raise ValueError('The given basis does not form a subalgebra!')
+
+        # Construct the Lie brackets of the subalgebra
+        rules = {}
+        dimW = W.dimension
+        basisW = W.basis_symbolic
+        basisW_outer = W.basis_outer
+        for j in range(dimW):
+            for i in range(j):
+                a = basisW[i]
+                ao = basisW_outer[i]
+                b = basisW[j]
+                bo = basisW_outer[j]
+                rules[(a,b)] = W.from_outer_to_symbols(self(ao,bo))
+        W.brackets.rules = rules
+        return W
+    
 class JetAlgebra(LieAlgebra):
     def __init__(self):
         super().__init__()
