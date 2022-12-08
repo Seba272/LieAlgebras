@@ -1377,8 +1377,7 @@ A matrix D that represent all strata-preserving derivations of the Lie algebra.
         self._generic_derivation_graded = der
 
     def lie_subalgebra(self, basis:list, smbl:str):
-        """
-        Returns the Lie subalgebra of self with basis 'basis'.
+        """Returns the Lie subalgebra of self with basis 'basis'.
 
 
         The given basis will be the outer basis of the subspace.
@@ -1416,6 +1415,59 @@ A matrix D that represent all strata-preserving derivations of the Lie algebra.
                 rules[(a,b)] = W.from_outer_to_symbols(self(ao,bo))
         W.brackets.rules = rules
         return W
+
+    def morphisms_to(self, la, smbl='L'):
+        """Returns all Lie Algebra morphisms from self to la.
+
+
+Example:
+--------
+>>> heis = LieAlgebra()
+>>> heis.dimension = 3
+>>> [X,Y,Z] = heis.basis_symbolic
+>>> heis.brackets.rules = {(X,Y):Z}
+>>> 
+>>> heis2 = LieAlgebra()
+>>> heis2.dimension = 5
+>>> [X1,Y1,X2,Y2,Z] = heis2.basis_symbolic
+>>> heis2.brackets.rules = {(X1,Y1):Z, (X2,Y2):Z}
+>>> 
+>>> W1 = heis2.lie_subalgebra([X1,Y1,Z],'a')
+>>> 
+>>> W2 = heis2.lie_subalgebra([X1,X2,Z],'aa')
+>>> 
+>>> L, sol = heis.morphisms_to(W1)
+>>> L.as_matrix = L.as_matrix.subs(sol[0]) 
+>>> print(L.as_matrix)
+Matrix([[L_0_0, L_0_1, 0], [L_1_0, L_1_1, 0], [L_2_0, L_2_1, L_0_0*L_1_1 - L_0_1*L_1_0]])
+>>> 
+>>> M, sol = heis.morphisms_to(W2,smbl='M') # One can choose the letter for the unknown morphism
+>>> M.as_matrix = M.as_matrix.subs(sol) # One needs to check if to sol is a list or not
+>>> print(M.as_matrix)
+Matrix([[M_0_0, M_0_1, 0], [M_1_0, M_1_1, 0], [M_2_0, M_2_1, 0]])
+>>> 
+>>> K, sol = heis.morphisms_to(heis2,smbl='K')
+>>> K.as_matrix = K.as_matrix.subs(sol[0])
+>>> print(K.as_matrix)
+Matrix([[K_0_0, K_0_1, 0], [K_1_0, K_1_1, 0], [K_2_0, K_2_1, 0], [K_3_0, K_3_1, 0], [K_4_0, K_4_1, K_0_0*K_1_1 - K_0_1*K_1_0 + K_2_0*K_3_1 - K_2_1*K_3_0]])
+
+
+        """
+        L = LinMap()
+        dim1 = self.dimension
+        dim2 = la.dimension
+        L.domain = self
+        L.range = la
+        L.as_matrix = Matrix(symarray(smbl,(dim2,dim1)))
+        conditions = []
+        for j in range(dim1):
+            for i in range(j):
+                a = self.basis_symbolic[i]
+                b = self.basis_symbolic[j]
+                conditions.append( la.from_symbols_to_array( L( self(a,b) ) - la( L(a),L(b) ) ) )
+        conditions = flatten(conditions)
+        sol = solve(conditions,manual=1)
+        return L, sol
     
 class JetAlgebra(LieAlgebra):
     def __init__(self):
