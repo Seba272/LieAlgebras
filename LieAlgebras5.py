@@ -474,6 +474,41 @@ Builds a graded basis following the growth vector.
         matrix = diag(*[ l**w[i] for i in range(dim)])
         return matrix @ v
 
+    def subspace(V:VectorSpace, basis:list, smbl:str):
+        """
+        Returns the subspace with basis.
+        
+        The given basis will be the outer basis of the subspace.
+        The string smbl is used to make the symbolic basis of the subspace.
+        
+        Warning! The string smbl should be different from the string used in the ambient vector space V,
+        otherwise the program will use the same symbols for the basis...
+        Things may break.
+        
+        Example:
+        ========
+        
+        >>> V = VectorSpace()
+        >>> V.dimension = 3
+        >>> B = V.basis_symbolic
+        >>> W = subspace(V,[B[0]+B[1],B[2]],'a')
+        
+        This method can be used also for a change of basis:
+        
+        >>> W = subspace(V,[B[0],B[0]+B[1],B[2]],'a')
+        
+        
+        """
+        W = VectorSpace()
+        W.basis_outer = basis
+        W.basis_symbolic_set(None, smbl)
+        A = LinMap()
+        A.domain = W
+        A.range = V
+        A.rules = {a:W.from_symbols_to_outer(a) for a  in W.basis_symbolic}
+        W.from_outer_to_symbols = A.pseudo_inverse
+        return W
+
 
 
 class MultLinMap():
