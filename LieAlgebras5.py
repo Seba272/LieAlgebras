@@ -1416,6 +1416,26 @@ A matrix D that represent all strata-preserving derivations of the Lie algebra.
         W.brackets.rules = rules
         return W
 
+
+    def conditions_for_morphisms_to(self, la , smbl='L'):
+        """Returns a linear map L from self to la and a list of conditions on L
+        """
+        L = LinMap()
+        dim1 = self.dimension
+        dim2 = la.dimension
+        L.domain = self
+        L.range = la
+        L.as_matrix = Matrix(symarray(smbl,(dim2,dim1)))
+        conditions = []
+        for j in range(dim1):
+            for i in range(j):
+                a = self.basis_symbolic[i]
+                b = self.basis_symbolic[j]
+                conditions.append( la.from_symbols_to_array( L( self(a,b) ) - la( L(a),L(b) ) ) )
+        conditions = flatten(conditions)
+        return L, conditions
+
+
     def morphisms_to(self, la, smbl='L'):
         """Returns all Lie Algebra morphisms from self to la.
 
@@ -1453,20 +1473,9 @@ Matrix([[K_0_0, K_0_1, 0], [K_1_0, K_1_1, 0], [K_2_0, K_2_1, 0], [K_3_0, K_3_1, 
 
 
         """
-        L = LinMap()
-        dim1 = self.dimension
-        dim2 = la.dimension
-        L.domain = self
-        L.range = la
-        L.as_matrix = Matrix(symarray(smbl,(dim2,dim1)))
-        conditions = []
-        for j in range(dim1):
-            for i in range(j):
-                a = self.basis_symbolic[i]
-                b = self.basis_symbolic[j]
-                conditions.append( la.from_symbols_to_array( L( self(a,b) ) - la( L(a),L(b) ) ) )
-        conditions = flatten(conditions)
-        sol = solve(conditions,manual=1)
+        L, conditions = self.conditions_for_morphisms_to(la,smbl)
+        sol = solve(conditions, list(L.as_matrix), manual=1, dict=True)
+        #sol = solve(conditions, manual=1, dict=True)
         return L, sol
     
 class JetAlgebra(LieAlgebra):
@@ -1934,7 +1943,7 @@ Return the part of v that belongs to the lie_algebra_domain.
         if sum(list(idx)) < 0:
             return self.basis_symbolic_dict[(idx,0)]
         else:
-            return self.basis_symbolic_dict[(idx,one)]
+            return self.basis_symbolic_dict[(idx,self.one)]
         
 
 
