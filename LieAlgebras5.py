@@ -60,6 +60,7 @@ class VectorSpace:
         self._growth_vector = None
         self._step = None
         self._weights = None
+        self._dil_matrix = None
         self._dual_basis_symbolic = None
         self._dual_vector_space = None
     
