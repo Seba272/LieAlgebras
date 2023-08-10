@@ -64,9 +64,11 @@ class VectorSpace:
         self._dual_basis_symbolic = None
         self._dual_vector_space = None
     
-    # dimension of the vector space:
     @property
     def dimension(self):
+        """
+Dimension of the vector space `self`.
+        """
         if self._dimension == None:
             if self._basis_symbolic != None:
                 self._dimension = len(self._basis_symbolic)
@@ -82,7 +84,7 @@ class VectorSpace:
     def dimension(self,dim):
         self._dimension = dim
 
-    # == symbolic basis ==
+    # Symbolic basis 
     @property
     def basis_symbolic(self):
         """
@@ -144,7 +146,7 @@ The standard basis of self made of arrays.
 
 As iterables, that can be: arrays, lists or tuples. 
 Among these optinos, arrays are better because they can be added together.
-So, vectors can ba arrays.
+So, vectors can be arrays.
 >>> v_i = Array([3*a1, a2])
         """
         if self._basis_coord == None:
@@ -535,11 +537,6 @@ Builds a graded basis following the growth vector.
                     print(abc)
                     return False
         return True
-
-
-
-
-
 class MultLinMap():
     def __init__(self):
         self._domains = []
@@ -818,8 +815,6 @@ Is not much more than a multilinear map (MultLinMap).
         self._pseudo_inverse = pinv
 
 
-
-
 class LieAlgebra(VectorSpace):
     def __init__(self):
         super().__init__()
@@ -874,16 +869,6 @@ self(b_i,b_j) = sum_k Gamma[^k,_i,_j] b_k
         if self.brackets.as_tensor != None:
             dim = self.dimension
             self._structure_constants = self.brackets.as_tensor.reshape(dim,dim,dim)
-
-#    def check_jacobi(self):
-#        """
-#        G[_a,_d,^e] G[_b,_c,^d] + G[_b,_d,^e] G[_c,_a,_d] + G[_c,_d,^e] G[_a,_b,^d]
-#        but it is easier to check it on symbolic vectors.
-#        """
-#        a = self.a_vector_symbolic('a')
-#        b = self.a_vector_symbolic('b')
-#        c = self.a_vector_symbolic('c')
-#        return simplify( self(a,self(b,c)) + self(b,self(c,a)) + self(c,self(a,b)) ) == 0*a
 
     def check_jacobi(self, verbose = False):
         """
@@ -1417,7 +1402,6 @@ A matrix D that represent all strata-preserving derivations of the Lie algebra.
         W.brackets.rules = rules
         return W
 
-
     def conditions_for_morphisms_to(self, la , smbl='L'):
         """Returns a linear map L from self to la and a list of conditions on L
         """
@@ -1435,7 +1419,6 @@ A matrix D that represent all strata-preserving derivations of the Lie algebra.
                 conditions.append( la.from_symbols_to_array( L( self(a,b) ) - la( L(a),L(b) ) ) )
         conditions = flatten(conditions)
         return L, conditions
-
 
     def morphisms_to(self, la, smbl='L'):
         """Returns all Lie Algebra morphisms from self to la.
@@ -1617,8 +1600,8 @@ Dictionary that gives all indices for each layer.
             symbols_basis[idx] = Symbol(smbl + '^' + str(idx[1]) + '_' + str(idx[0]), commutative = False)
         self._basis_symbolic_dict = symbols_basis
     
-    # This is an override from vector space
     def _basis_symbolic_build(self,smbl = 'b'):
+        # This is an override from vector space
         basis_dict = self.basis_symbolic_dict
         indices = self.indices
         # at this point, one coul just define 
@@ -1808,11 +1791,11 @@ returns v rcontr X, with both X and v written in the outer basis.
                 return Mul(*comm) * self._rcontr_2(X, non_comm[-1])
             else:
                 return Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
-#            print(0, comm,non_comm)
-#            res =  Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
-#            print(1, Mul(*comm), self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) ))
-#            print(2, self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
-#            return res
+        #            print(0, comm,non_comm)
+        #            res =  Mul(*comm) * self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+        #            print(1, Mul(*comm), self._rcontr_1(self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) ))
+        #            print(2, self._rcontr_2(X, non_comm[-1]) , Mul(*non_comm[:-1] ) )
+        #            return res
         return self._rcontr_2(X,v)
         
     def _rcontr_2(self,X,v):
@@ -1946,51 +1929,6 @@ Return the part of v that belongs to the lie_algebra_domain.
         else:
             return self.basis_symbolic_dict[(idx,self.one)]
         
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Useful instances:
-
-
-            
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 LineVectorSpace = VectorSpace()
 LineVectorSpace.basis_symbolic = ['@1']
